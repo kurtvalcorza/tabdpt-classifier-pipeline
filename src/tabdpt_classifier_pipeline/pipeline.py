@@ -10,6 +10,7 @@ from huggingface_hub import hf_hub_download
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
 TABDPT_PACKAGE_VERSION = "1.2.0"
+TABDPT_UPSTREAM_CODE_COMMIT = "9cfb05e0a6bc380ae6c99c08adc8d50dacd4f246"
 TABDPT_HF_REPO = "Layer6/TabDPT"
 TABDPT_HF_REVISION = "4462ffbd1d8dea25d4862d30beed4b70cd596ae5"
 TABDPT_WEIGHT_FILENAME = "tabdpt1_2.safetensors"
@@ -154,6 +155,13 @@ class TabDPTClassificationPipeline:
         if self.estimator is None or self.target_column is None:
             raise RuntimeError("Pipeline is not fitted")
 
+    def _feature_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+        required = self.feature_encoder.feature_columns
+        missing = [col for col in required if col not in frame.columns]
+        if missing:
+            raise ValueError(f"Feature schema mismatch; missing={missing}")
+        return frame.loc[:, required]
+
     def predict_proba(
         self,
         frame: pd.DataFrame,
@@ -164,7 +172,7 @@ class TabDPTClassificationPipeline:
         seed: int = 42,
     ) -> pd.DataFrame:
         self._require_fitted()
-        X = self.feature_encoder.transform(frame[self.feature_encoder.feature_columns])
+        X = self.feature_encoder.transform(self._feature_frame(frame))
         proba = self.estimator.ensemble_predict_proba(
             X,
             n_ensembles=n_ensembles,
