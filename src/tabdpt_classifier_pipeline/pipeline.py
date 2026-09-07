@@ -118,6 +118,7 @@ class TabDPTClassificationPipeline:
         self.verbose = verbose
         self.feature_encoder = TabularFeatureEncoder()
         self.target_column: str | None = None
+        self.drop_columns_: list[str] = []
         self.class_labels_: list[str] = []
         self.estimator: Any | None = None
 
@@ -128,8 +129,8 @@ class TabDPTClassificationPipeline:
             raise ValueError(f"Target column {target_column!r} not found")
         if frame[target_column].isna().any():
             raise ValueError("Classification target contains missing values")
-        drop_columns = [c for c in (drop_columns or []) if c != target_column]
-        features = frame.drop(columns=[target_column, *drop_columns], errors="ignore")
+        self.drop_columns_ = list(dict.fromkeys(c for c in (drop_columns or []) if c != target_column))
+        features = frame.drop(columns=[target_column, *self.drop_columns_], errors="ignore")
         labels = frame[target_column].map(str)
         self.class_labels_ = sorted(labels.unique().tolist())
         if len(self.class_labels_) < 2:
@@ -156,11 +157,13 @@ class TabDPTClassificationPipeline:
             raise RuntimeError("Pipeline is not fitted")
 
     def _feature_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+        effective = frame.drop(columns=self.drop_columns_, errors="ignore")
         required = self.feature_encoder.feature_columns
-        missing = [col for col in required if col not in frame.columns]
-        if missing:
-            raise ValueError(f"Feature schema mismatch; missing={missing}")
-        return frame.loc[:, required]
+        missing = [col for col in required if col not in effective.columns]
+        extra = [col for col in effective.columns if col not in required]
+        if missing or extra:
+            raise ValueError(f"Feature schema mismatch; missing={missing}, extra={extra}")
+        return effective.loc[:, required]
 
     def predict_proba(
         self,
