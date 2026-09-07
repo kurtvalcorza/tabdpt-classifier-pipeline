@@ -1,5 +1,75 @@
 # TabDPT Classifier Pipeline
 
-DIMER-ready inference pipeline for the open-weight TabDPT tabular foundation model, focused on supervised classification.
+DIMER-ready inference pipeline for **TabDPT v1.2 (TabDPT-Turbo)**, an open-weight tabular foundation model from Layer 6 AI for in-context supervised learning.
 
-Implementation is developed through pull requests. See the upstream model at `Layer6/TabDPT` and inference package at `layer6ai-labs/TabDPT-inference`.
+## What this repository provides
+
+- supervised tabular **classification** with `TabDPTClassifier`;
+- train-fitted preprocessing for mixed numeric/categorical CSV tables;
+- immutable upstream weight provenance and SHA-256 verification;
+- a DIMER pipeline manifest and integration contract;
+- a lightweight Colab tutorial and CI tests that do not download the 254 MB model in routine CI.
+
+## Pinned model identity
+
+| Field | Value |
+|---|---|
+| Upstream package | `tabdpt==1.2.0` |
+| Upstream inference repo | `layer6ai-labs/TabDPT-inference` tag `v1.2.0` |
+| Hugging Face model | `Layer6/TabDPT` |
+| Weight file | `tabdpt1_2.safetensors` |
+| HF revision | `4462ffbd1d8dea25d4862d30beed4b70cd596ae5` |
+| SHA-256 | `06680220fd66c4524051706b98c1c659a674d19d3a766cd0bb276505e99faccd` |
+| Weight size | 254,098,072 bytes |
+| License | Apache-2.0 |
+
+The weight bytes are **not committed to this repository**. Runtime acquisition is pinned to the immutable Hugging Face revision and verified before model construction.
+
+## Quick start
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -e '.[model]'
+```
+
+```python
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from tabdpt_classifier_pipeline import TabDPTClassificationPipeline
+
+frame = load_breast_cancer(as_frame=True).frame
+train, test = train_test_split(
+    frame, test_size=0.2, random_state=42, stratify=frame['target']
+)
+
+pipe = TabDPTClassificationPipeline()
+pipe.fit(train, target_column='target')
+print(pipe.evaluate(test))
+```
+
+For production or DIMER, pass a locally mounted verified weight file with `model_weight_path=` to avoid runtime network dependence.
+
+## Operational defaults
+
+The DIMER manifest intentionally caps initial training/context rows. TabDPT v1.2 can use full context when memory permits, but context length and ensemble count are explicit throughput/memory controls. Classification defaults to balanced context subsampling when the requested context is smaller than the available training set.
+
+## Important evaluation caveat
+
+TabDPT was pretrained on **real-world tabular datasets**. Public benchmark or tutorial datasets may overlap directly or indirectly with its pretraining corpus. Built-in datasets in the tutorial are therefore plumbing/sanity checks, **not clean evidence of out-of-distribution model quality**. Use application-specific held-out data for deployment decisions.
+
+## Repository map
+
+- `MODEL_CARD.md` — model provenance, intended use, limitations, and DIMER status.
+- `DIMER_CONTRACT.md` — repository/platform integration boundary.
+- `TABULAR_CLASSIFICATION_DATASET_SPEC.md` — accepted dataset shape and split rules.
+- `dimer-pipeline.json` — versioned DIMER controls.
+- `src/tabdpt_classifier_pipeline/` — reusable inference wrapper.
+- `tutorials/tabdpt_classifier_colab.ipynb` — end-to-end smoke tutorial.
+- `scripts/validate_repo.py` — static contract validation.
+
+## Upstream
+
+TabDPT: *Scaling Tabular Foundation Models on Real Data*, NeurIPS 2025, arXiv:2410.18164.
+
+This repository is an integration project and is not affiliated with or endorsed by Layer 6 AI or The Toronto-Dominion Bank.
