@@ -178,6 +178,23 @@ class TabularFeatureEncoder:
         return self.fit(frame).transform(frame)
 
 
+def _set_deterministic_seed(seed: int | None) -> None:
+    if seed is None:
+        return
+    import random
+
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except (ImportError, AttributeError):
+        pass
+
+
 class TabDPTClassificationPipeline:
     def __init__(
         self,
@@ -187,6 +204,7 @@ class TabDPTClassificationPipeline:
         use_flash: bool | None = None,
         compile_model: bool = False,
         verbose: bool = False,
+        seed: int | None = 42,
     ) -> None:
         self.model_weight_path = model_weight_path
         self.cache_dir = cache_dir
@@ -194,19 +212,29 @@ class TabDPTClassificationPipeline:
         self.use_flash = _resolve_use_flash(use_flash, device)
         self.compile_model = compile_model
         self.verbose = verbose
+        self.seed = seed
         self.feature_encoder = TabularFeatureEncoder()
         self.target_column: str | None = None
         self.drop_columns_: list[str] = []
         self.class_labels_: list[str] = []
         self.estimator: Any | None = None
 
-    def fit(self, frame: pd.DataFrame, target_column: str = "target", drop_columns: list[str] | None = None):
+    def fit(
+        self,
+        frame: pd.DataFrame,
+        target_column: str = "target",
+        drop_columns: list[str] | None = None,
+        seed: int | None = None,
+    ):
         if frame.columns.duplicated().any():
             raise ValueError("Duplicate column names are not supported")
         if target_column not in frame.columns:
             raise ValueError(f"Target column {target_column!r} not found")
         if frame[target_column].isna().any():
             raise ValueError("Classification target contains missing values")
+        if seed is not None:
+            self.seed = seed
+        _set_deterministic_seed(self.seed)
         self.drop_columns_ = list(dict.fromkeys(c for c in (drop_columns or []) if c != target_column))
         features = frame.drop(columns=[target_column, *self.drop_columns_], errors="ignore")
         labels = frame[target_column].map(str)
@@ -218,6 +246,7 @@ class TabDPTClassificationPipeline:
         X = self.feature_encoder.fit_transform(features)
         weights = resolve_tabdpt_weights(self.model_weight_path, self.cache_dir)
         from tabdpt import TabDPTClassifier
+
         self.estimator = TabDPTClassifier(
             model_weight_path=str(weights),
             device=self.device,
@@ -233,18 +262,39 @@ class TabDPTClassificationPipeline:
     def export_preprocessing_state(self) -> dict[str, Any]:
         if not self.feature_encoder.is_fitted or self.target_column is None:
             raise RuntimeError("Pipeline preprocessing state is not fitted")
-        return {
+        state: dict[str, Any] = {
             "schemaVersion": 1,
             "targetColumn": self.target_column,
             "dropColumns": list(self.drop_columns_),
             "classLabels": list(self.class_labels_),
+            "seed": self.seed,
             "encoder": self.feature_encoder.to_state(),
         }
+        if self.estimator is not None:
+            upstream: dict[str, Any] = {"seed": self.seed}
+            V = getattr(self.estimator, "V", None)
+            if V is not None:
+                if hasattr(V, "detach"):
+                    upstream["pca_basis"] = V.detach().cpu().numpy().tolist()
+                elif isinstance(V, np.ndarray):
+                    upstream["pca_basis"] = V.tolist()
+                elif isinstance(V, list):
+                    upstream["pca_basis"] = V
+            imputer = getattr(self.estimator, "imputer", None)
+            if imputer is not None and hasattr(imputer, "statistics_") and imputer.statistics_ is not None:
+                upstream["imputer_statistics"] = np.asarray(imputer.statistics_).tolist()
+            scaler = getattr(self.estimator, "scaler", None)
+            if scaler is not None and hasattr(scaler, "mean_") and scaler.mean_ is not None:
+                upstream["scaler_mean"] = np.asarray(scaler.mean_).tolist()
+                upstream["scaler_scale"] = np.asarray(scaler.scale_).tolist()
+            state["upstream"] = upstream
+        return state
 
     def condition_on_context(
         self,
         context_frame: pd.DataFrame,
         preprocessing_state: dict[str, Any],
+        seed: int | None = None,
     ) -> "TabDPTClassificationPipeline":
         """Condition the pipeline on an in-context support table using restored preprocessing state without refitting."""
         if not isinstance(preprocessing_state, dict) or preprocessing_state.get("schemaVersion") != 1:
@@ -258,6 +308,10 @@ class TabDPTClassificationPipeline:
         class_labels = preprocessing_state.get("classLabels")
         if not isinstance(class_labels, list) or len(class_labels) < 2:
             raise ValueError("Invalid preprocessing state: classLabels must contain at least 2 classes")
+
+        effective_seed = seed if seed is not None else preprocessing_state.get("seed", self.seed)
+        _set_deterministic_seed(effective_seed)
+        self.seed = effective_seed
 
         self.feature_encoder = TabularFeatureEncoder.from_state(encoder_state)
         self.target_column = target_column
@@ -286,6 +340,21 @@ class TabDPTClassificationPipeline:
             verbose=self.verbose,
         )
         self.estimator.fit(X, y)
+
+        upstream = preprocessing_state.get("upstream")
+        if isinstance(upstream, dict):
+            pca_basis = upstream.get("pca_basis")
+            if pca_basis is not None and hasattr(self.estimator, "V"):
+                try:
+                    import torch
+
+                    self.estimator.V = torch.as_tensor(
+                        pca_basis,
+                        dtype=torch.float32,
+                        device=self.device or "cpu",
+                    )
+                except (ImportError, AttributeError):
+                    self.estimator.V = np.array(pca_basis, dtype=np.float32)
         return self
 
     @classmethod
@@ -299,6 +368,7 @@ class TabDPTClassificationPipeline:
         use_flash: bool | None = None,
         compile_model: bool = False,
         verbose: bool = False,
+        seed: int | None = None,
     ) -> "TabDPTClassificationPipeline":
         """Load a DIMER serving artifact bundle, restoring preprocessing from manifest without refitting."""
         artifact_file = Path(artifact_path)
@@ -339,6 +409,7 @@ class TabDPTClassificationPipeline:
         dtype_spec[target_col] = str
 
         context_df = pd.read_csv(context_file, dtype=dtype_spec)
+        effective_seed = seed if seed is not None else preprocessing.get("seed", 42)
         pipeline = cls(
             model_weight_path=model_weight_path,
             cache_dir=cache_dir,
@@ -346,8 +417,9 @@ class TabDPTClassificationPipeline:
             use_flash=use_flash,
             compile_model=compile_model,
             verbose=verbose,
+            seed=effective_seed,
         )
-        pipeline.condition_on_context(context_df, preprocessing)
+        pipeline.condition_on_context(context_df, preprocessing, seed=effective_seed)
         return pipeline
 
     def _require_fitted(self):
