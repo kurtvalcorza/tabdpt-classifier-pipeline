@@ -42,6 +42,8 @@ Before any CSV is loaded into pandas, the adapter enforces the standard DIMER da
 - `DIMER_MAX_COMPRESSION_RATIO` per ZIP member;
 - `DIMER_MAX_DATASET_FILES` across dataset files/archive members.
 
+All limits must be numeric and positive. `DIMER_MAX_COMPRESSION_RATIO` must additionally be finite; `nan`, `inf`, `-inf`, and overflow-to-infinity values fail closed instead of disabling the ratio guard.
+
 ZIP member paths are normalized and absolute/traversal/drive-qualified paths plus duplicate normalized paths are rejected. Direct-directory inputs enforce file-count, per-file, and total-byte limits before parsing. Symlinked dataset roots, files, and ZIPs are rejected so direct inputs cannot escape `DIMER_DATASET_DIR`.
 
 When `val.csv` is absent, the adapter creates a deterministic stratified holdout using `validation_split` and `seed`. The holdout is created before `max_train_rows` caps the fitted support table, preventing validation rows from entering the model context. Categorical mappings and target mappings are learned only from the resulting training support.
@@ -50,7 +52,7 @@ Support-row capping deterministically reserves one row for every training class 
 
 ## Feature schema and persisted preprocessing
 
-Configured `drop_columns` are removed before the fitted schema is established and may be present in raw inference/evaluation tables. After those columns are removed, missing features and any other extra columns are rejected.
+Configured `drop_columns` are removed before the fitted schema is established and may be present in raw inference/evaluation tables. The target column is never treated as a dropped feature, even if it appears in the configured list. After effective dropped columns are removed, missing features and any other extra columns are rejected.
 
 `artifacts/artifact.json` uses `format: tabdpt-dimer-context-v2` and persists a versioned `preprocessing` object containing:
 
@@ -58,10 +60,18 @@ Configured `drop_columns` are removed before the fitted schema is established an
 - numeric/categorical assignments;
 - categorical value maps;
 - missing/unseen categorical-code semantics;
-- target and configured drop columns;
+- target and effective drop columns;
 - classifier class order/label mapping.
 
+`preprocessing.dropColumns` is the authoritative value for reconstructing fitted preprocessing. The legacy top-level `dropColumns` field is retained for compatibility and is emitted from the same fitted preprocessing state, so the two values cannot diverge.
+
 The state can be reconstructed with `TabularFeatureEncoder.from_state()` without re-inferring pandas dtypes from `training_context.csv`. This prevents numeric-looking string categories from silently changing semantics during a fresh-process reload.
+
+## GPU attention compatibility
+
+The pipeline accepts `use_flash: bool | None`. With the default `None`, FlashAttention is enabled only when CUDA is available on a target device with compute capability 8.0 or newer. CPU execution, unavailable CUDA, Tesla T4 / sm_75-class devices, and capability-detection failures fall back to non-Flash attention. An explicit `True` or `False` remains an operator override.
+
+The Colab/Kaggle tutorial passes `use_flash=False` explicitly so it runs on common Tesla T4 environments.
 
 ## Outputs
 
@@ -79,4 +89,4 @@ This runtime performs in-context fitting only. Gradient fine-tuning remains out 
 
 ## Production acceptance boundary
 
-Repository CI proves manifest/runtime mapping, transport-only `model_id` compatibility, bounded/symlink-safe dataset loading, deterministic split/cap behavior including ultra-rare class preservation, preprocessing-state serialization, checkpoint-integrity guards, license/provenance presence, and static tutorial validity across currently released Python 3.10–3.14. Final acceptance still requires a real pinned checkpoint on GPU and an on-platform execution/deployment test.
+Repository CI proves manifest/runtime mapping, transport-only `model_id` compatibility, bounded/symlink-safe dataset loading, deterministic split/cap behavior including ultra-rare class preservation, preprocessing-state serialization, checkpoint-integrity guards, finite dataset-limit validation, artifact drop-column consistency, FlashAttention capability-selection logic, license/provenance presence, and static tutorial validity across currently released Python 3.10–3.14. Final acceptance still requires a real pinned checkpoint on GPU and an on-platform execution/deployment test.
