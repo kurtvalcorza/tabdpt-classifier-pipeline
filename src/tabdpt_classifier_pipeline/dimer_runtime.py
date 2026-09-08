@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import zipfile
 from dataclasses import asdict, dataclass
@@ -159,6 +160,8 @@ def _dataset_limits() -> tuple[int, int, int, float, int]:
         )
     except ValueError as exc:
         raise ValueError("DIMER dataset safety limits must be numeric") from exc
+    if not math.isfinite(limits[3]):
+        raise ValueError("DIMER_MAX_COMPRESSION_RATIO must be finite")
     if any(value <= 0 for value in limits):
         raise ValueError("DIMER dataset safety limits must be positive")
     return limits
@@ -407,14 +410,15 @@ def run_dimer_job() -> dict[str, Any]:
     context_path = artifact_dir / "training_context.csv"
     train.to_csv(context_path, index=False)
     manifest_path = artifact_dir / "artifact.json"
+    preprocessing_state = pipeline.export_preprocessing_state()
     manifest = {
         "format": "tabdpt-dimer-context-v2",
         "taskType": "tabular_classification",
         "targetColumn": config.target_column,
-        "dropColumns": list(config.drop_columns),
+        "dropColumns": list(preprocessing_state["dropColumns"]),
         "classNames": pipeline.class_labels_,
         "runtimeConfig": asdict(config),
-        "preprocessing": pipeline.export_preprocessing_state(),
+        "preprocessing": preprocessing_state,
         "baseModel": {
             "repo": TABDPT_HF_REPO,
             "revision": TABDPT_HF_REVISION,
