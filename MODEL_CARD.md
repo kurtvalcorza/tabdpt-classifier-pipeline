@@ -18,7 +18,7 @@ base_model: Layer6/TabDPT
 
 ###### Description
 
-TabDPT v1.2, released as **TabDPT-Turbo**, is an open-weight tabular foundation model designed for in-context supervised classification on structured datasets. Rather than iteratively training neural network weights or tree ensembles on each new dataset via gradient descent or heuristic splits, TabDPT processes a labelled support table (the in-context prompt) alongside unlabelled test observations through a specialized tabular Transformer architecture. Task adaptation occurs entirely at inference time in a single forward pass. Pretrained on a diverse corpus of real-world tabular datasets and optimized with FlashAttention and key-value caching in v1.2 (Turbo), it delivers rapid, zero-shot tabular classification across binary and multiclass problems without per-dataset hyperparameter tuning. This repository packages the upstream classification estimator for reproducible, DIMER-ready deployment.
+TabDPT v1.2, released as **TabDPT-Turbo**, is an open-weight tabular foundation model designed for in-context supervised classification on structured datasets. Rather than iteratively training neural network weights or tree ensembles on each new dataset via gradient descent or heuristic splits, TabDPT processes a labelled support table (the in-context prompt) alongside unlabelled test observations through a specialized tabular Transformer architecture. Task adaptation occurs entirely at inference time through in-context forward evaluation without gradient updates or per-dataset training loops. For single-context queries without ensembling, inference requires only a forward evaluation; when ensembling over multiple support subsets (`n_ensembles > 1`) or batching query chunks, predictions are aggregated across multiple forward passes. Pretrained on a diverse corpus of real-world tabular datasets and optimized with FlashAttention and key-value caching in v1.2 (Turbo), it delivers rapid, zero-shot tabular classification across binary and multiclass problems without per-dataset hyperparameter tuning. This repository packages the upstream classification estimator for reproducible, DIMER-ready deployment.
 
 #### Intended Use and Limitations
 
@@ -37,7 +37,7 @@ Machine learning engineers, data scientists, researchers, and software engineers
 - Raw unstructured modalities (unprocessed images, audio, video, free-form long text) without prior tabular feature extraction.
 - Direct time-series forecasting or survival analysis requiring temporal dependency modeling without supervised lag feature engineering.
 - Autonomous high-impact or safety-critical decisions without human oversight (e.g., autonomous clinical triage, judicial sentencing, loan/credit denials).
-- Tables with extreme feature cardinality (>1,000 features) exceeding transformer context capacity without prior feature selection.
+- Tables where linear feature compression is unsuitable: TabDPT-Turbo's native row encoder accommodates up to 128 features; for tables exceeding 128 features, the upstream estimator automatically applies PCA feature reduction down to its native 128-dimensional width. On very wide datasets where linear PCA discards critical non-linear signals, prior domain-specific feature selection is recommended. (Note that feature column width is distinct from transformer row-context capacity, which governs support row count `context_size`).
 
 ---
 
@@ -74,10 +74,9 @@ Default discrete predictions use argmax over predicted class probabilities (equi
 
 ###### Approaches to uncertainty and variability
 
-Uncertainty in predictions can be estimated through:
-- Predicted softmax class probabilities.
-- Ensembling across multiple support context subsamples (`n_ensembles >= 1`, where different subsets of the support set are sampled and forward-pass logits are averaged).
-- K-fold cross-validation across support partitions to quantify variance and empirical confidence intervals.
+- **Predicted probabilities:** The pipeline exposes predicted class probabilities via `predict_proba()`. Note that raw softmax outputs reflect model confidence scores rather than formally calibrated Bayesian posterior probabilities.
+- **Ensemble averaging:** When `n_ensembles > 1`, predicted probabilities are averaged across distinct support context subsamples.
+- **Empirical validation:** Users requiring calibrated confidence scores should evaluate empirical reliability diagrams or apply post-hoc calibration methods (such as Platt scaling or isotonic regression) on independent holdout sets.
 
 ---
 
@@ -85,7 +84,7 @@ Uncertainty in predictions can be estimated through:
 
 ###### Data
 
-Pretrained on a wide corpus of real-world tabular datasets sourced from public repositories. No classified, confidential, or intentionally harvested Personally Identifiable Information (PII) is included in the model distribution. However, because training data encompasses historical real-world tables, societal biases and sampling skews present in those sources may be reflected in model representations.
+Pretrained by upstream authors on a broad collection of public tabular datasets sourced from open repositories. The pipeline distribution provides only model weights (`tabdpt1_2.safetensors`) and wrapper code, and does not distribute pretraining datasets. Downstream users should note that public pretraining tables may still reflect historical demographic skews, societal biases, or sensitive domain attributes present in their original sources. Operators deploying the model are responsible for auditing their own in-context support data for sensitive attributes, proprietary information, or PII before conditioning the model.
 
 ###### Human Life
 
