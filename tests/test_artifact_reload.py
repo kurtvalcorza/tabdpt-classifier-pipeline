@@ -494,3 +494,90 @@ def test_artifact_reload_preserves_estimator_device_for_pca_basis(tmp_path, mock
     with pytest.raises(RuntimeError, match="found at least two devices"):
         restored.predict(test_query)
 
+
+def test_artifact_reload_parquet_case_insensitive_and_shorthand_extension(tmp_path, mock_tabdpt):
+    # Prepare small training table
+    train = pd.DataFrame({
+        "code": ["01", "02"],
+        "val": [10.0, 20.0],
+        "target": ["alpha", "beta"],
+    })
+    pipe = TabDPTClassificationPipeline(compile_model=False, use_flash=False)
+    pipe.fit(train, target_column="target")
+    preprocessing_state = pipe.export_preprocessing_state()
+
+    # 1. Test uppercase .PARQUET extension
+    artifact_dir_upper = tmp_path / "artifacts_upper"
+    artifact_dir_upper.mkdir()
+    context_upper = artifact_dir_upper / "training_context.PARQUET"
+    train.to_parquet(context_upper, index=False)
+
+    manifest_upper = {
+        "format": "tabdpt-dimer-context-v3",
+        "taskType": "tabular_classification",
+        "targetColumn": "target",
+        "dropColumns": [],
+        "classNames": pipe.class_labels_,
+        "preprocessing": preprocessing_state,
+        "trainingContext": {"path": context_upper.name, "sha256": _sha256(context_upper)},
+    }
+    manifest_upper_path = artifact_dir_upper / "artifact.json"
+    manifest_upper_path.write_text(json.dumps(manifest_upper))
+    loaded_upper = TabDPTClassificationPipeline.load_artifact(manifest_upper_path, compile_model=False, use_flash=False)
+    assert loaded_upper.predict(train.drop(columns=["target"])).tolist() == ["alpha", "alpha"]
+
+    # 2. Test shorthand .pq extension
+    artifact_dir_pq = tmp_path / "artifacts_pq"
+    artifact_dir_pq.mkdir()
+    context_pq = artifact_dir_pq / "training_context.pq"
+    train.to_parquet(context_pq, index=False)
+
+    manifest_pq = {
+        "format": "tabdpt-dimer-context-v3",
+        "taskType": "tabular_classification",
+        "targetColumn": "target",
+        "dropColumns": [],
+        "classNames": pipe.class_labels_,
+        "preprocessing": preprocessing_state,
+        "trainingContext": {"path": context_pq.name, "sha256": _sha256(context_pq)},
+    }
+    manifest_pq_path = artifact_dir_pq / "artifact.json"
+    manifest_pq_path.write_text(json.dumps(manifest_pq))
+    loaded_pq = TabDPTClassificationPipeline.load_artifact(manifest_pq_path, compile_model=False, use_flash=False)
+    assert loaded_pq.predict(train.drop(columns=["target"])).tolist() == ["alpha", "alpha"]
+
+
+def test_artifact_reload_parquet_missing_pyarrow_raises_clear_error(tmp_path, mock_tabdpt, monkeypatch):
+    artifact_dir = tmp_path / "artifacts_err"
+    artifact_dir.mkdir()
+    context_path = artifact_dir / "training_context.parquet"
+    pd.DataFrame({"x": [1.0], "target": ["0"]}).to_parquet(context_path)
+
+    manifest = {
+        "format": "tabdpt-dimer-context-v3",
+        "taskType": "tabular_classification",
+        "preprocessing": {
+            "schemaVersion": 1,
+            "targetColumn": "target",
+            "classLabels": ["0", "1"],
+            "dropColumns": [],
+            "encoder": {
+                "schemaVersion": 1,
+                "featureColumns": ["x"],
+                "numericColumns": ["x"],
+                "categoryMaps": {},
+            },
+        },
+        "trainingContext": {"path": "training_context.parquet", "sha256": _sha256(context_path)},
+    }
+    manifest_path = artifact_dir / "artifact.json"
+    manifest_path.write_text(json.dumps(manifest))
+
+    def fake_read_parquet(*args, **kwargs):
+        raise ImportError("No module named 'pyarrow'")
+
+    monkeypatch.setattr(pd, "read_parquet", fake_read_parquet)
+    with pytest.raises(ImportError, match="pyarrow is required to load parquet serving context"):
+        TabDPTClassificationPipeline.load_artifact(manifest_path)
+
+
