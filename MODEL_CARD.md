@@ -1,8 +1,120 @@
-# Model Card — TabDPT Classifier v1.2
+---
+license: apache-2.0
+pipeline_tag: tabular-classification
+tags:
+  - tabular-classification
+  - tabular-foundation-model
+  - in-context-learning
+  - tabdpt
+base_model: Layer6/TabDPT
+---
 
-## Model overview
+# TabDPT Classifier v1.2
 
-TabDPT v1.2, released as **TabDPT-Turbo**, is an open-weight tabular foundation model for in-context supervised prediction. This repository packages the upstream classification estimator for reproducible DIMER-oriented inference.
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Layer6%2FTabDPT-ffcc4d?style=flat)](https://huggingface.co/Layer6/TabDPT)
+[![GitHub](https://img.shields.io/badge/GitHub-layer6ai--labs%2FTabDPT--inference-181717?style=flat&logo=github&logoColor=white)](https://github.com/layer6ai-labs/TabDPT-inference)
+[![arXiv](https://img.shields.io/badge/arXiv-2608.01400-b31b1b.svg)](https://arxiv.org/abs/2608.01400)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+###### Description
+
+TabDPT v1.2, released as **TabDPT-Turbo**, is an open-weight tabular foundation model designed for in-context supervised classification on structured datasets. Rather than iteratively training neural network weights or tree ensembles on each new dataset via gradient descent or heuristic splits, TabDPT processes a labelled support table (the in-context prompt) alongside unlabelled test observations through a specialized tabular Transformer architecture. Task adaptation occurs entirely at inference time through in-context forward evaluation without gradient updates or per-dataset training loops. For single-context queries without ensembling, inference requires only a forward evaluation; when ensembling over multiple support subsets (`n_ensembles > 1`) or batching query chunks, predictions are aggregated across multiple forward passes. Pretrained on a diverse corpus of real-world tabular datasets and optimized with FlashAttention and key-value caching in v1.2 (Turbo), it delivers rapid, zero-shot tabular classification across binary and multiclass problems without per-dataset hyperparameter tuning. This repository packages the upstream classification estimator for reproducible, DIMER-ready deployment.
+
+#### Intended Use and Limitations
+
+###### Primary Intended Uses
+
+Supervised tabular classification tasks, including binary and multiclass prediction on structured tables where features consist of numerical and categorical columns. Suitable target applications include tabular risk scoring, customer churn and retention prediction, diagnostic triage in exploratory research settings, equipment fault detection, marketing propensity, and general row-per-observation classification. It is designed to act as an out-of-the-box strong baseline and inference engine requiring zero hyperparameter optimization.
+
+###### Primary Intended Users
+
+Machine learning engineers, data scientists, researchers, and software engineers developing predictive pipelines for structured datasets in enterprise, scientific, or academic environments. Users are expected to understand data validation, leakage prevention, class imbalance, and standard evaluation methodologies.
+
+###### Out-of-scope use cases
+
+- Continuous numerical regression (use TabDPT Regressor v1.2 instead).
+- Unsupervised clustering, dimensionality reduction, density estimation, or tabular data synthesis.
+- Raw unstructured modalities (unprocessed images, audio, video, free-form long text) without prior tabular feature extraction.
+- Direct time-series forecasting or survival analysis requiring temporal dependency modeling without supervised lag feature engineering.
+- Autonomous high-impact or safety-critical decisions without human oversight (e.g., autonomous clinical triage, judicial sentencing, loan/credit denials).
+- Tables where linear feature compression is unsuitable: TabDPT-Turbo's native row encoder accommodates up to 128 features; for tables exceeding 128 features, the upstream estimator automatically applies PCA feature reduction down to its native 128-dimensional width. On very wide datasets where linear PCA discards critical non-linear signals, prior domain-specific feature selection is recommended. (Note that feature column width is distinct from transformer row-context capacity, which governs support row count `context_size`).
+
+---
+
+#### Factors
+
+###### Groups
+
+TabDPT v1.2 was pretrained on a broad corpus of public real-world tabular datasets and is not inherently tailored to, or debiased for, any specific demographic, phenotypic, or protected group (such as age, gender, race, ethnicity, or socioeconomic status). In human-centric applications, downstream users must rigorously audit group-level fairness metrics (e.g., equalized odds, demographic parity) on their specific application data.
+
+###### Instrumentation
+
+The model operates on normalized tabular data matrices (floating-point numbers and encoded categorical integers) rather than direct physical sensor streams. The "instruments" are upstream data collection systems, SQL databases, survey instruments, laboratory diagnostic assays, and ETL pipelines. Inaccuracies, sensor drifts, or calibration discrepancies in the underlying instruments directly propagate into model features.
+
+###### Environment
+
+TabDPT operates across generic computational environments (CPU, CUDA GPUs with `sm_80+` for FlashAttention, or `sm_75` like Tesla T4 with FlashAttention disabled). In terms of application environments, the model assumes that feature distributions between the in-context support set and the query test set are drawn from the same data-generating distribution; severe covariate shifts, concept drifts, or institutional data discrepancies will degrade predictive fidelity.
+
+---
+
+#### Metrics
+
+###### Performance Measures
+
+Model evaluation in the pipeline and upstream benchmarks reports:
+- **Accuracy**: Proportion of correctly classified instances.
+- **Log Loss (Cross-Entropy)**: Evaluates the quality and calibration of predicted class probability distributions.
+- **Binary ROC-AUC**: Measures ranking discrimination across classification thresholds on binary tasks.
+
+These metrics assess both discrete decision accuracy and probabilistic confidence calibration without arbitrary threshold selection.
+
+###### Decision thresholds
+
+Default discrete predictions use argmax over predicted class probabilities (equivalent to a 0.5 probability threshold for binary classification). For operational deployments, users should calibrate application-specific decision thresholds based on the asymmetric real-world costs of False Positives versus False Negatives.
+
+###### Approaches to uncertainty and variability
+
+- **Predicted probabilities:** The pipeline exposes predicted class probabilities via `predict_proba()`. Note that raw softmax outputs reflect model confidence scores rather than formally calibrated Bayesian posterior probabilities.
+- **Ensemble averaging:** When `n_ensembles > 1`, predicted probabilities are averaged across distinct support context subsamples.
+- **Empirical validation:** Users requiring calibrated confidence scores should evaluate empirical reliability diagrams or apply post-hoc calibration methods (such as Platt scaling or isotonic regression) on independent holdout sets.
+
+---
+
+#### Ethical considerations and biases
+
+###### Data
+
+Pretrained by upstream authors on a broad collection of public tabular datasets sourced from open repositories. The pipeline distribution provides only model weights (`tabdpt1_2.safetensors`) and wrapper code, and does not distribute pretraining datasets. Downstream users should note that public pretraining tables may still reflect historical demographic skews, societal biases, or sensitive domain attributes present in their original sources. Operators deploying the model are responsible for auditing their own in-context support data for sensitive attributes, proprietary information, or PII before conditioning the model.
+
+###### Human Life
+
+The model is **not** certified, validated, or intended for autonomous decision-making in situations central to human life, health, or flourishing (such as clinical medical treatment, intensive care triage, criminal sentencing, or life-critical safety systems). Any application in sensitive domains requires human oversight and rigorous independent validation.
+
+###### Mitigations
+
+- Self-contained open weights (`tabdpt1_2.safetensors`) with cryptographic SHA-256 verification.
+- Pinned upstream Hugging Face revision (`4462ffbd1d8dea25d4862d30beed4b70cd596ae5`).
+- Balanced context subsampling during support set construction to protect against severe class imbalance.
+- Strict input schema validation preventing silent column misalignment.
+- Deterministic random seed controls for reproducible sampling and ensembling.
+
+###### Risks and harms
+
+- **Overconfidence on out-of-distribution tables**: The model may produce confident misclassifications when inputs deviate drastically from pretraining patterns.
+- **Amplification of dataset bias**: Conditioning on a biased support table will reproduce or amplify those biases in predictions.
+- **Automation bias**: Users uncritically accepting model predictions without domain review.
+- **Leakage**: Accidental inclusion of target-correlated artifacts in the feature set leading to spurious high performance.
+
+###### Use cases
+
+Disturbing or prohibited use cases include:
+- Mass surveillance, unauthorized biometric or demographic profiling, or social scoring systems.
+- Unlawful discrimination in employment, housing, credit, or healthcare access.
+- Predictive scoring designed for predatory financial targeting or deceptive manipulation.
+
+---
+
+## Model Details
 
 - **Task:** supervised tabular classification
 - **Model family:** tabular transformer / in-context learner
@@ -23,7 +135,7 @@ TabDPT v1.2, released as **TabDPT-Turbo**, is an open-weight tabular foundation 
 
 The wrapper verifies SHA-256 before constructing the upstream estimator.
 
-## Primary v1.2 reference
+## Primary references
 
 **Hosseinzadeh, R., Labach, A., Xue, Z., Han, S., Thomas, V., & Caterini, A. L. (2026). _TabDPT-Turbo: Efficient In-Context Learning for Tabular Prediction_. arXiv:2608.01400.**
 
@@ -59,10 +171,6 @@ The adapter supports `train.csv` and optional `val.csv`, applies deterministic s
 ## Training-data / benchmark caveat
 
 TabDPT was pretrained on real-world tables. Common public benchmarks or tutorial datasets may overlap with upstream pretraining, so their metrics should be treated as smoke-test evidence rather than independent benchmark claims.
-
-## Intended use and limitations
-
-Suitable for conventional supervised tabular classification after task-specific validation. It is not a causal model and is not independently validated for high-stakes medical, financial, legal, policy, or safety-critical automation.
 
 ## License
 
