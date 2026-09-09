@@ -59,6 +59,11 @@ print(pipe.evaluate(test))
 
 For DIMER, mount/cache the verified base weight through `DIMER_BASE_MODEL_PATH` so execution does not depend on live internet access.
 
+## Model card
+
+[`MODEL_CARD.md`](MODEL_CARD.md) documents this pipeline against
+[`MODEL_CARD_SPEC.md`](MODEL_CARD_SPEC.md), the DIMER-wide contract for what a pipeline's model card must contain — intended uses and users, out-of-scope uses, factors, metrics and decision thresholds, and ethical considerations. The spec carries the pre-flight checklist to run before a release, and the section template for a new pipeline.
+
 ## Evaluation caveat
 
 TabDPT was pretrained on real-world tabular datasets. Public tutorial/benchmark datasets may overlap directly or indirectly with upstream pretraining. Tutorial metrics are plumbing/sanity checks, not clean evidence of out-of-distribution quality.
