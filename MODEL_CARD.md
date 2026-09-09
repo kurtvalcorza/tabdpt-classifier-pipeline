@@ -1,5 +1,6 @@
 ---
 license: apache-2.0
+model_card_spec: "1.0"
 pipeline_tag: tabular-classification
 tags:
   - tabular-classification
