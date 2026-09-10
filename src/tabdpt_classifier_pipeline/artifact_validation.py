@@ -166,7 +166,6 @@ def validate_dimer_artifact(
     if preprocessing.get("schemaVersion") != 1:
         raise ValueError("Artifact preprocessing.schemaVersion must be 1")
     encoder_state = _require_mapping(preprocessing.get("encoder"), "preprocessing.encoder")
-    # Validate the fitted encoder state without touching model or code-bearing serialization.
     TabularFeatureEncoder.from_state(encoder_state)
 
     target_column = preprocessing.get("targetColumn")
@@ -196,8 +195,11 @@ def validate_dimer_artifact(
     _validate_runtime_config(runtime)
     if runtime["target_column"] != target_column:
         raise ValueError("Artifact runtimeConfig.target_column disagrees with fitted preprocessing state")
-    if runtime["drop_columns"] != preprocessing_drop:
-        raise ValueError("Artifact runtimeConfig.drop_columns disagree with fitted preprocessing state")
+    effective_runtime_drop = [column for column in runtime["drop_columns"] if column != target_column]
+    if effective_runtime_drop != preprocessing_drop:
+        raise ValueError(
+            "Artifact effective runtimeConfig.drop_columns disagree with fitted preprocessing state"
+        )
     preprocessing_seed = preprocessing.get("seed")
     if isinstance(preprocessing_seed, bool) or not isinstance(preprocessing_seed, int):
         raise ValueError("Artifact preprocessing.seed must be an integer")
