@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from tabdpt_classifier_pipeline import validate_dimer_artifact
 from tabdpt_classifier_pipeline.dimer_runtime import _dataset_limits, run_dimer_job
 from tabdpt_classifier_pipeline.pipeline import _resolve_use_flash
 
@@ -103,7 +104,9 @@ def test_artifact_drop_columns_use_fitted_preprocessing_state(tmp_path, monkeypa
     )
 
     run_dimer_job()
-    artifact = json.loads((output / "artifacts" / "artifact.json").read_text())
+    artifact_path = output / "artifacts" / "artifact.json"
+    artifact = json.loads(artifact_path.read_text())
+    assert artifact["runtimeConfig"]["drop_columns"] == ["id", "target"]
     assert artifact["dropColumns"] == ["id"]
     assert artifact["preprocessing"]["dropColumns"] == ["id"]
     assert artifact["preprocessing"]["seed"] == artifact["runtimeConfig"]["seed"]
@@ -113,3 +116,7 @@ def test_artifact_drop_columns_use_fitted_preprocessing_state(tmp_path, monkeypa
         output / "artifacts" / "training_context.parquet"
     ).stat().st_size
     assert (output / "artifacts" / "training_context.parquet").is_file()
+
+    validated, context = validate_dimer_artifact(artifact_path)
+    assert validated["runtimeConfig"]["drop_columns"] == ["id", "target"]
+    assert context == output / "artifacts" / "training_context.parquet"
