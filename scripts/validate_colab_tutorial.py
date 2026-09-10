@@ -48,16 +48,20 @@ REQUIRED_CALLS = {
         "predict",
         "predict_proba",
         "export_preprocessing_state",
+        "validate_dimer_artifact",
         "load_artifact",
     },
-    "ARTIFACT-INFERENCE": {"load_artifact", "predict", "predict_proba"},
+    "ARTIFACT-INFERENCE": {
+        "validate_dimer_artifact",
+        "load_artifact",
+        "predict",
+        "predict_proba",
+    },
 }
-FORBIDDEN_ARTIFACT_CALLS = {"fit"}
+FORBIDDEN_ARTIFACT_CALLS = {"fit", "export_preprocessing_state"}
 PLACEHOLDER_PATTERN = re.compile(r"\b(?:TODO|TBD|FIXME)\b", re.IGNORECASE)
 SHA_PATTERN = re.compile(r'REPO_REVISION\s*=\s*["\']([0-9a-f]{40})["\']')
 
-# Disallow developer/author workstation paths like C:\\Users or /home/username.
-# Permit Colab paths (/content/...) and web URLs.
 ABSOLUTE_PATH_PATTERNS = [
     re.compile(r"[a-zA-Z]:[\\/]"),
     re.compile(r"/(?:Users|home|root)/"),
@@ -204,8 +208,6 @@ def validate_notebook(nb_path: Path) -> None:
                     observed_calls.add(name)
                 require_artifact_loader_use_flash_false(node, nb_path.name, idx)
 
-    # Unit tests also feed synthetic notebooks into this function to exercise generic
-    # syntax/path hygiene. Profile-specific checks apply only to the two released tutorial names.
     expected_profile = EXPECTED_PROFILES.get(nb_path.name)
     if expected_profile is None:
         return
@@ -256,6 +258,14 @@ def validate_notebook(nb_path: Path) -> None:
         if "files.upload()" not in all_code:
             raise AssertionError(
                 f"{nb_path.name}: external artifact/new-input upload path is missing"
+            )
+        if "strict_directory=True" not in all_code:
+            raise AssertionError(
+                f"{nb_path.name}: strict artifact-directory validation must be enabled"
+            )
+        if "runtime_config" not in all_code:
+            raise AssertionError(
+                f"{nb_path.name}: artifact runtime controls must be inspected and used"
             )
 
     print(f"[PASS] Validated {nb_path.name} as {expected_profile}")
