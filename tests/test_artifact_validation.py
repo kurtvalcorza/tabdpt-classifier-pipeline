@@ -28,6 +28,10 @@ def _valid_bundle(tmp_path: Path) -> tuple[Path, dict]:
         "dropColumns": [],
         "classNames": ["no", "yes"],
         "runtimeConfig": {
+            "target_column": "target",
+            "drop_columns": [],
+            "max_train_rows": 10000,
+            "validation_split": 0.2,
             "fine_tune": False,
             "n_ensembles": 2,
             "context_size": 512,
@@ -86,6 +90,38 @@ def test_validate_dimer_artifact_rejects_missing_runtime_config(tmp_path):
     manifest.pop("runtimeConfig")
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="runtimeConfig"):
+        validate_dimer_artifact(manifest_path)
+
+
+def test_validate_dimer_artifact_rejects_reduced_runtime_schema(tmp_path):
+    manifest_path, manifest = _valid_bundle(tmp_path)
+    manifest["runtimeConfig"].pop("max_train_rows")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing required fields"):
+        validate_dimer_artifact(manifest_path)
+
+
+def test_validate_dimer_artifact_rejects_runtime_target_mismatch(tmp_path):
+    manifest_path, manifest = _valid_bundle(tmp_path)
+    manifest["runtimeConfig"]["target_column"] = "other_target"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="runtimeConfig.target_column"):
+        validate_dimer_artifact(manifest_path)
+
+
+def test_validate_dimer_artifact_rejects_runtime_drop_columns_mismatch(tmp_path):
+    manifest_path, manifest = _valid_bundle(tmp_path)
+    manifest["runtimeConfig"]["drop_columns"] = ["id"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="runtimeConfig.drop_columns"):
+        validate_dimer_artifact(manifest_path)
+
+
+def test_validate_dimer_artifact_rejects_runtime_seed_mismatch(tmp_path):
+    manifest_path, manifest = _valid_bundle(tmp_path)
+    manifest["runtimeConfig"]["seed"] = 7
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="runtimeConfig.seed"):
         validate_dimer_artifact(manifest_path)
 
 
