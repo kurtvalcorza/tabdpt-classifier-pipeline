@@ -27,6 +27,18 @@ _EXPECTED_BASE_MODEL = {
     "sha256": TABDPT_WEIGHT_SHA256,
     "upstreamCodeCommit": TABDPT_UPSTREAM_CODE_COMMIT,
 }
+_REQUIRED_RUNTIME_KEYS = {
+    "target_column",
+    "drop_columns",
+    "max_train_rows",
+    "validation_split",
+    "fine_tune",
+    "n_ensembles",
+    "context_size",
+    "batch_size",
+    "temperature",
+    "seed",
+}
 _REQUIRED_INFERENCE_CONFIG = {
     "n_ensembles": (int, 1, 16),
     "context_size": (int, 128, 16384),
@@ -50,12 +62,48 @@ def _require_mapping(value: Any, field: str) -> dict[str, Any]:
     return value
 
 
+def _require_integer(value: Any, field: str, minimum: int, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Artifact {field} must be an integer")
+    if not minimum <= value <= maximum:
+        raise ValueError(f"Artifact {field} must be between {minimum} and {maximum}")
+    return value
+
+
+def _require_number(value: Any, field: str, minimum: float, maximum: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Artifact {field} must be numeric")
+    numeric = float(value)
+    if not minimum <= numeric <= maximum:
+        raise ValueError(f"Artifact {field} must be between {minimum} and {maximum}")
+    return numeric
+
+
 def _validate_runtime_config(runtime: dict[str, Any]) -> None:
-    if runtime.get("fine_tune") is not False:
+    missing = sorted(_REQUIRED_RUNTIME_KEYS - set(runtime))
+    unexpected = sorted(set(runtime) - _REQUIRED_RUNTIME_KEYS)
+    if missing:
+        raise ValueError(f"Artifact runtimeConfig is missing required fields: {missing}")
+    if unexpected:
+        raise ValueError(f"Artifact runtimeConfig contains unsupported fields: {unexpected}")
+
+    target_column = runtime["target_column"]
+    if not isinstance(target_column, str) or not target_column.strip() or len(target_column) > 128:
+        raise ValueError("Artifact runtimeConfig.target_column must be a non-empty string of at most 128 characters")
+
+    drop_columns = runtime["drop_columns"]
+    if not isinstance(drop_columns, list) or not all(isinstance(value, str) for value in drop_columns):
+        raise ValueError("Artifact runtimeConfig.drop_columns must be a list of strings")
+    if len(drop_columns) != len(set(drop_columns)):
+        raise ValueError("Artifact runtimeConfig.drop_columns must not contain duplicates")
+
+    _require_integer(runtime["max_train_rows"], "runtimeConfig.max_train_rows", 200, 50000)
+    _require_number(runtime["validation_split"], "runtimeConfig.validation_split", 0.05, 0.4)
+
+    if runtime["fine_tune"] is not False:
         raise ValueError("Artifact runtimeConfig.fine_tune must be false for TabDPT")
+
     for key, (expected_type, minimum, maximum) in _REQUIRED_INFERENCE_CONFIG.items():
-        if key not in runtime:
-            raise ValueError(f"Artifact runtimeConfig is missing {key!r}")
         value = runtime[key]
         if isinstance(value, bool) or not isinstance(value, expected_type):
             raise ValueError(f"Artifact runtimeConfig.{key} has the wrong type")
@@ -75,9 +123,10 @@ def validate_dimer_artifact(
     """Validate a DIMER TabDPT v3 serving artifact before model reconstruction.
 
     The artifact is data-only (`artifact.json` plus `training_context.parquet`). This
-    validates structure, exact model provenance, fitted-preprocessing consistency,
-    runtime controls, path containment, file size, and support-context SHA-256. It
-    establishes internal consistency, not sender authenticity.
+    validates structure, exact model provenance, the complete production runtime
+    contract, fitted-preprocessing consistency, path containment, file size, and
+    support-context SHA-256. It establishes internal consistency, not sender
+    authenticity.
     """
     if isinstance(max_context_bytes, bool) or not isinstance(max_context_bytes, int) or max_context_bytes <= 0:
         raise ValueError("max_context_bytes must be a positive integer")
@@ -145,6 +194,15 @@ def validate_dimer_artifact(
 
     runtime = _require_mapping(manifest.get("runtimeConfig"), "runtimeConfig")
     _validate_runtime_config(runtime)
+    if runtime["target_column"] != target_column:
+        raise ValueError("Artifact runtimeConfig.target_column disagrees with fitted preprocessing state")
+    if runtime["drop_columns"] != preprocessing_drop:
+        raise ValueError("Artifact runtimeConfig.drop_columns disagree with fitted preprocessing state")
+    preprocessing_seed = preprocessing.get("seed")
+    if isinstance(preprocessing_seed, bool) or not isinstance(preprocessing_seed, int):
+        raise ValueError("Artifact preprocessing.seed must be an integer")
+    if runtime["seed"] != preprocessing_seed:
+        raise ValueError("Artifact runtimeConfig.seed disagrees with fitted preprocessing seed")
 
     training_context = _require_mapping(manifest.get("trainingContext"), "trainingContext")
     context_rel = training_context.get("path")
