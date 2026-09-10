@@ -71,9 +71,12 @@ def test_artifact_drop_columns_use_fitted_preprocessing_state(tmp_path, monkeypa
         def __init__(self, **kwargs):
             self.class_labels_ = ["0", "1"]
             self.drop_columns_ = []
+            self.seed = kwargs.get("seed")
 
-        def fit(self, frame, target_column="target", drop_columns=None):
+        def fit(self, frame, target_column="target", drop_columns=None, seed=None):
             self.drop_columns_ = [c for c in (drop_columns or []) if c != target_column]
+            if seed is not None:
+                self.seed = seed
             return self
 
         def evaluate(self, frame, **kwargs):
@@ -85,6 +88,7 @@ def test_artifact_drop_columns_use_fitted_preprocessing_state(tmp_path, monkeypa
                 "targetColumn": "target",
                 "dropColumns": list(self.drop_columns_),
                 "classLabels": list(self.class_labels_),
+                "seed": self.seed,
                 "encoder": {"schemaVersion": 1, "featureColumns": ["x"], "numericColumns": ["x"], "categoryMaps": {}, "categoricalEncoding": {}},
             }
 
@@ -102,6 +106,10 @@ def test_artifact_drop_columns_use_fitted_preprocessing_state(tmp_path, monkeypa
     artifact = json.loads((output / "artifacts" / "artifact.json").read_text())
     assert artifact["dropColumns"] == ["id"]
     assert artifact["preprocessing"]["dropColumns"] == ["id"]
+    assert artifact["preprocessing"]["seed"] == artifact["runtimeConfig"]["seed"]
     assert artifact["format"] == "tabdpt-dimer-context-v3"
     assert artifact["trainingContext"]["path"] == "training_context.parquet"
+    assert artifact["trainingContext"]["sizeBytes"] == (
+        output / "artifacts" / "training_context.parquet"
+    ).stat().st_size
     assert (output / "artifacts" / "training_context.parquet").is_file()
