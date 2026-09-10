@@ -1,0 +1,10 @@
+# Exact first-order runtime pins for DIMER tutorial notebooks.
+# Based on the TabDPT v1.2 upstream reproducibility profile plus this repository's
+# Parquet/Hugging Face requirements. Supported tutorial runtime: Python 3.11-3.13.
+# Keep this file synchronized with the notebook release verification record.
+
+tabdpt[reproduce-results]==1.2.0
+huggingface-hub==0.33.2
+safetensors==0.5.3
+tqdm==4.67.1
+pyarrow==25.0.1
