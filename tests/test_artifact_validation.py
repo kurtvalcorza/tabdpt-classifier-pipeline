@@ -77,6 +77,15 @@ def test_validate_dimer_artifact_accepts_complete_v3_bundle(tmp_path):
     assert context == tmp_path / "training_context.parquet"
 
 
+def test_validate_dimer_artifact_accepts_target_in_requested_runtime_drop_columns(tmp_path):
+    manifest_path, manifest = _valid_bundle(tmp_path)
+    manifest["runtimeConfig"]["drop_columns"] = ["target"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    validated, _ = validate_dimer_artifact(manifest_path)
+    assert validated["runtimeConfig"]["drop_columns"] == ["target"]
+    assert validated["preprocessing"]["dropColumns"] == []
+
+
 def test_validate_dimer_artifact_rejects_model_provenance_mismatch(tmp_path):
     manifest_path, manifest = _valid_bundle(tmp_path)
     manifest["baseModel"]["revision"] = "0" * 40
