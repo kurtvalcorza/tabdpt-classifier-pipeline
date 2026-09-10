@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TUTORIALS_DIR = ROOT / "tutorials"
 REQUIREMENTS = TUTORIALS_DIR / "requirements-colab.txt"
+CODE_ANCHOR = "anchors/notebook-spec-v1-code-20260910"
 
 EXPECTED_PROFILES = {
     "tabdpt_classifier_colab.ipynb": "E2E",
@@ -161,6 +162,12 @@ def validate_requirements() -> None:
         raise AssertionError(f"{REQUIREMENTS.name}: missing required pins: {missing}")
 
 
+def _require_source_markers(nb_name: str, all_code: str, markers: tuple[str, ...]) -> None:
+    for marker in markers:
+        if marker not in all_code:
+            raise AssertionError(f"{nb_name}: required source invariant missing: {marker!r}")
+
+
 def validate_notebook(nb_path: Path) -> None:
     """Validate generic notebook hygiene first, then known release-profile invariants."""
     if not nb_path.exists():
@@ -240,10 +247,30 @@ def validate_notebook(nb_path: Path) -> None:
     match = SHA_PATTERN.search(all_code)
     if not match:
         raise AssertionError(f"{nb_path.name}: immutable 40-hex REPO_REVISION pin missing")
+    if CODE_ANCHOR not in all_markdown:
+        raise AssertionError(f"{nb_path.name}: durable reachability anchor for REPO_REVISION is not documented")
     if "requirements-colab.txt" not in all_code:
         raise AssertionError(f"{nb_path.name}: pinned tutorial requirements are not installed")
     if "checkout -q" not in all_code:
         raise AssertionError(f"{nb_path.name}: repository revision is not explicitly checked out")
+
+    if expected_profile == "E2E":
+        _require_source_markers(
+            nb_path.name,
+            all_code,
+            (
+                "DimerRuntimeConfig(",
+                "asdict(TUTORIAL_RUNTIME)",
+                "runtime_config[\"drop_columns\"] = list(runtime_config[\"drop_columns\"])",
+                "del pipe, INFERENCE, TUTORIAL_RUNTIME, SEED, runtime_config, weights",
+                "reload_runtime = validated_manifest[\"runtimeConfig\"]",
+                "reload_inference =",
+            ),
+        )
+        if "model_weight_path=weights" in all_code.split("reload_runtime =", 1)[-1]:
+            raise AssertionError(
+                f"{nb_path.name}: fresh reload must not reuse the producer's resolved model path"
+            )
 
     if expected_profile == "ARTIFACT-INFERENCE":
         forbidden = sorted(FORBIDDEN_ARTIFACT_CALLS & observed_calls)
@@ -263,10 +290,17 @@ def validate_notebook(nb_path: Path) -> None:
             raise AssertionError(
                 f"{nb_path.name}: strict artifact-directory validation must be enabled"
             )
-        if "runtime_config" not in all_code:
-            raise AssertionError(
-                f"{nb_path.name}: artifact runtime controls must be inspected and used"
-            )
+        _require_source_markers(
+            nb_path.name,
+            all_code,
+            (
+                "runtime_config",
+                "runtime_config[\"target_column\"]",
+                "runtime_config[\"max_train_rows\"]",
+                "runtime_config[\"validation_split\"]",
+                "inference_kwargs = {key: runtime_config[key]",
+            ),
+        )
 
     print(f"[PASS] Validated {nb_path.name} as {expected_profile}")
 
