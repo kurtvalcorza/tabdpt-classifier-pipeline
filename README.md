@@ -9,7 +9,8 @@ DIMER-ready inference pipeline for **TabDPT v1.2 (TabDPT-Turbo)**, an open-weigh
 - immutable upstream weight provenance and SHA-256 verification;
 - a DIMER manifest plus executable local/on-prem runtime adapter;
 - deterministic validation splitting and support-row capping from DIMER runtime controls;
-- a lightweight Colab tutorial and CI tests that do not download the 254 MB model in routine CI.
+- DIMER Notebook Specification 1.0 tutorial candidates for end-to-end classification and external artifact inference;
+- CI checks that validate repository contracts and notebook source without downloading the 254 MB model in routine CI.
 
 ## Pinned model identity
 
@@ -58,6 +59,15 @@ print(pipe.evaluate(test))
 ```
 
 For DIMER, mount/cache the verified base weight through `DIMER_BASE_MODEL_PATH` so execution does not depend on live internet access.
+
+## Tutorials
+
+See [`tutorials/README.md`](tutorials/README.md) for the DIMER Notebook Specification 1.0 registry:
+
+- `tabdpt_classifier_colab.ipynb` — `E2E`: sample/BYOD data validation, in-context conditioning, evaluation and majority baseline, separate new-data inference, machine-readable outputs, DIMER v3 artifact export, fresh reload, and prediction-equivalence verification;
+- `tabdpt_classifier_artifact_inference_colab.ipynb` — `ARTIFACT-INFERENCE`: externally supplied artifact validation, immutable model verification, fitted-preprocessing restoration, real external-input scoring, and prediction/provenance export.
+
+Both notebooks install a pinned tutorial environment and declare their normative profile in notebook metadata. They remain **release candidates, not release-grade**, until clean-runtime execution evidence is recorded for the exact release revision. Routine CI performs static validation only and is not represented as notebook execution evidence.
 
 ## Model card
 
