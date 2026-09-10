@@ -401,8 +401,14 @@ def run_dimer_job() -> dict[str, Any]:
         device=os.getenv("DIMER_DEVICE", "").strip() or None,
         compile_model=False,
         verbose=False,
+        seed=config.seed,
     )
-    pipeline.fit(train, target_column=config.target_column, drop_columns=list(config.drop_columns))
+    pipeline.fit(
+        train,
+        target_column=config.target_column,
+        drop_columns=list(config.drop_columns),
+        seed=config.seed,
+    )
     metrics = pipeline.evaluate(val, **config.inference_kwargs())
 
     artifact_dir = output_dir / "artifacts"
@@ -426,7 +432,11 @@ def run_dimer_job() -> dict[str, Any]:
             "sha256": TABDPT_WEIGHT_SHA256,
             "upstreamCodeCommit": TABDPT_UPSTREAM_CODE_COMMIT,
         },
-        "trainingContext": {"path": context_path.name, "sha256": _sha256(context_path)},
+        "trainingContext": {
+            "path": context_path.name,
+            "sizeBytes": context_path.stat().st_size,
+            "sha256": _sha256(context_path),
+        },
     }
     _write_json(manifest_path, manifest)
     result = {
