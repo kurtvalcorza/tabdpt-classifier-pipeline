@@ -30,6 +30,8 @@ DIMER may additionally supply `model_id` inside `DIMER_HYPERPARAMETERS_JSON` as 
 
 `modelFinetuning` is a platform compatibility namespace, not a claim that TabDPT weights are gradient-tuned. `fine_tune` must be `false`. The remaining values control support/context selection and validation/inference.
 
+`DimerRuntimeConfig.seed` is propagated into pipeline construction, support conditioning, validation/inference controls, and persisted preprocessing state. A v3 artifact is invalid if its top-level runtime seed disagrees with `preprocessing.seed`.
+
 ## Dataset execution
 
 `dimer_entrypoint.py` consumes `DIMER_DATASET_DIR`. The mounted directory must provide `train.csv` and may provide `val.csv`, either directly or inside exactly one ZIP archive.
@@ -61,11 +63,22 @@ Configured `drop_columns` are removed before the fitted schema is established an
 - categorical value maps;
 - missing/unseen categorical-code semantics;
 - target and effective drop columns;
-- classifier class order/label mapping.
+- classifier class order/label mapping;
+- the seed used when fitting/restoring preprocessing and support state.
 
 `preprocessing.dropColumns` is the authoritative value for reconstructing fitted preprocessing. The legacy top-level `dropColumns` field is retained for compatibility and is emitted from the same fitted preprocessing state, so the two values cannot diverge.
 
 The state can be reconstructed with `TabularFeatureEncoder.from_state()` without re-inferring pandas dtypes from `training_context.parquet`. This prevents numeric-looking string categories from silently changing semantics during a fresh-process reload.
+
+## Artifact runtime contract
+
+A v3 `runtimeConfig` is the serialized form of the complete production `DimerRuntimeConfig` and contains exactly:
+
+- `target_column`, `drop_columns`, `max_train_rows`, `validation_split`;
+- `fine_tune`;
+- `n_ensembles`, `context_size`, `batch_size`, `temperature`, `seed`.
+
+The strict artifact validator requires the production-shaped runtime schema rather than a tutorial-only subset. It rejects disagreement between runtime target/drop fields and fitted preprocessing, rejects a runtime/preprocessing seed mismatch, verifies exact base-model provenance, validates fitted encoder state, and checks the support-context path, declared size when present, SHA-256, symlink/path containment, and unexpected files.
 
 ## GPU attention compatibility
 
@@ -79,7 +92,7 @@ A successful run writes:
 
 - `result.json` at `DIMER_RESULT_PATH` (or under `DIMER_OUTPUT_DIR` by default);
 - `artifacts/training_context.parquet` containing the exact capped support rows;
-- `artifacts/artifact.json` containing task/model identity, runtime controls, versioned fitted preprocessing state, class names, and context digest.
+- `artifacts/artifact.json` containing task/model identity, the complete runtime contract, versioned fitted preprocessing state, class names, and context size/digest.
 
 The base checkpoint remains externally mounted/cached and is referenced by immutable identity rather than copied into each run output.
 
@@ -89,4 +102,4 @@ This runtime performs in-context fitting only. Gradient fine-tuning remains out 
 
 ## Production acceptance boundary
 
-Repository CI proves manifest/runtime mapping, transport-only `model_id` compatibility, bounded/symlink-safe dataset loading, deterministic split/cap behavior including ultra-rare class preservation, preprocessing-state serialization, checkpoint-integrity guards, finite dataset-limit validation, artifact drop-column consistency, FlashAttention capability-selection logic, license/provenance presence, and static tutorial validity across currently released Python 3.10–3.14. Final acceptance still requires a real pinned checkpoint on GPU and an on-platform execution/deployment test.
+Repository CI proves manifest/runtime mapping, transport-only `model_id` compatibility, bounded/symlink-safe dataset loading, deterministic split/cap behavior including ultra-rare class preservation, configured-seed propagation into fitted preprocessing/artifacts, full artifact-runtime-schema validation, checkpoint-integrity guards, finite dataset-limit validation, artifact target/drop/seed consistency, FlashAttention capability-selection logic, license/provenance presence, and static tutorial validity across currently released Python 3.10–3.14. Final acceptance still requires a real pinned checkpoint on GPU and an on-platform execution/deployment test.
