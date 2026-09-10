@@ -14,7 +14,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TUTORIALS_DIR = ROOT / "tutorials"
 REQUIREMENTS = TUTORIALS_DIR / "requirements-colab.txt"
+REGISTRY = TUTORIALS_DIR / "README.md"
 CODE_ANCHOR = "anchors/notebook-spec-v1-code-20260910"
+EXPECTED_CODE_REVISION = "cef1f0ae4af14c7c27364a1f1a9d8f573af3504e"
+SUPPORTED_RELEASE_MARKER = "Google Colab is the supported release path"
+UPSTREAM_REVISION = "9cfb05e0a6bc380ae6c99c08adc8d50dacd4f246"
+PAPER_ID = "2410.18164"
+REQUIRED_RESOURCE_MARKERS = (
+    "README.md",
+    "MODEL_CARD.md",
+    "TABULAR_CLASSIFICATION_DATASET_SPEC.md",
+    "DIMER_CONTRACT.md",
+    f"TabDPT-inference/tree/{UPSTREAM_REVISION}",
+    "huggingface.co/Layer6/TabDPT",
+    f"arxiv.org/abs/{PAPER_ID}",
+)
 
 EXPECTED_PROFILES = {
     "tabdpt_classifier_colab.ipynb": "E2E",
@@ -162,6 +176,24 @@ def validate_requirements() -> None:
         raise AssertionError(f"{REQUIREMENTS.name}: missing required pins: {missing}")
 
 
+def validate_registry() -> None:
+    if not REGISTRY.is_file():
+        raise AssertionError(f"Missing tutorial registry: {REGISTRY}")
+    text = REGISTRY.read_text(encoding="utf-8")
+    required = (
+        EXPECTED_CODE_REVISION,
+        "Google Colab is the release-conformance environment",
+        "CC BY 4.0",
+        "archive.ics.uci.edu/dataset/17/breast-cancer-wisconsin-diagnostic",
+        *REQUIRED_RESOURCE_MARKERS,
+    )
+    for marker in required:
+        if marker not in text:
+            raise AssertionError(f"{REGISTRY.name}: required registry/source marker missing: {marker!r}")
+    if "2608.01400" in text:
+        raise AssertionError(f"{REGISTRY.name}: stale/non-upstream TabDPT paper identifier remains")
+
+
 def _require_source_markers(nb_name: str, all_code: str, markers: tuple[str, ...]) -> None:
     for marker in markers:
         if marker not in all_code:
@@ -232,6 +264,15 @@ def validate_notebook(nb_path: Path) -> None:
 
     if f"**Profile:** `{expected_profile}`" not in all_markdown:
         raise AssertionError(f"{nb_path.name}: visible normative profile declaration missing")
+    if SUPPORTED_RELEASE_MARKER not in all_markdown:
+        raise AssertionError(f"{nb_path.name}: Google Colab release-support boundary is missing")
+    if "compatible Jupyter" in all_markdown:
+        raise AssertionError(f"{nb_path.name}: unsupported generic Jupyter release claim remains")
+    if "2608.01400" in all_markdown:
+        raise AssertionError(f"{nb_path.name}: stale/non-upstream TabDPT paper identifier remains")
+    for marker in REQUIRED_RESOURCE_MARKERS:
+        if marker not in all_markdown:
+            raise AssertionError(f"{nb_path.name}: required linked resource marker missing: {marker!r}")
     for marker in PROFILE_MARKERS[expected_profile]:
         if marker.lower() not in all_markdown.lower():
             raise AssertionError(
@@ -247,6 +288,11 @@ def validate_notebook(nb_path: Path) -> None:
     match = SHA_PATTERN.search(all_code)
     if not match:
         raise AssertionError(f"{nb_path.name}: immutable 40-hex REPO_REVISION pin missing")
+    if match.group(1) != EXPECTED_CODE_REVISION:
+        raise AssertionError(
+            f"{nb_path.name}: REPO_REVISION {match.group(1)!r} does not match retained code revision "
+            f"{EXPECTED_CODE_REVISION!r}"
+        )
     if CODE_ANCHOR not in all_markdown:
         raise AssertionError(f"{nb_path.name}: durable reachability anchor for REPO_REVISION is not documented")
     if "requirements-colab.txt" not in all_code:
@@ -255,6 +301,14 @@ def validate_notebook(nb_path: Path) -> None:
         raise AssertionError(f"{nb_path.name}: repository revision is not explicitly checked out")
 
     if expected_profile == "E2E":
+        for marker in (
+            "archive.ics.uci.edu/dataset/17/breast-cancer-wisconsin-diagnostic",
+            "scikit-learn.org/stable/modules/generated/sklearn.datasets.load_breast_cancer.html",
+            "CC BY 4.0",
+            "sanity data, not benchmark evidence",
+        ):
+            if marker not in all_markdown:
+                raise AssertionError(f"{nb_path.name}: sample provenance/license marker missing: {marker!r}")
         _require_source_markers(
             nb_path.name,
             all_code,
@@ -307,6 +361,7 @@ def validate_notebook(nb_path: Path) -> None:
 
 def main() -> None:
     validate_requirements()
+    validate_registry()
     notebooks = sorted(TUTORIALS_DIR.glob("*.ipynb"))
     expected_names = set(EXPECTED_PROFILES)
     actual_names = {path.name for path in notebooks}
