@@ -77,14 +77,14 @@ def clean_code_for_ast(code: str) -> str:
 
 
 def check_absolute_paths(code: str, filename: str, cell_idx: int) -> None:
+    """Reject author/developer workstation paths while preserving the legacy test contract."""
     for line in code.splitlines():
         if "http://" in line or "https://" in line:
             continue
         for pattern in ABSOLUTE_PATH_PATTERNS:
             if pattern.search(line):
                 raise AssertionError(
-                    f"{filename} (cell {cell_idx}): developer-local filesystem path detected: "
-                    f"{line.strip()}"
+                    f"{filename} (cell {cell_idx}): Absolute filesystem path detected: {line.strip()}"
                 )
 
 
@@ -96,26 +96,44 @@ def call_name(node: ast.Call) -> str | None:
     return None
 
 
-def require_use_flash_false(node: ast.Call, filename: str, cell_idx: int) -> None:
+def _has_use_flash_false(node: ast.Call) -> bool:
+    return any(
+        kw.arg == "use_flash"
+        and isinstance(kw.value, ast.Constant)
+        and kw.value.value is False
+        for kw in node.keywords
+    )
+
+
+def check_pipeline_use_flash(tree: ast.AST, filename: str, cell_idx: int) -> bool:
+    """Compatibility helper: validate direct pipeline constructors and report if one was found."""
+    found_call = False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not (isinstance(node.func, ast.Name) and node.func.id == "TabDPTClassificationPipeline"):
+            continue
+        found_call = True
+        if not _has_use_flash_false(node):
+            raise AssertionError(
+                f"{filename} (cell {cell_idx}): TabDPTClassificationPipeline must pass "
+                "`use_flash=False` explicitly for Tesla T4 portability."
+            )
+    return found_call
+
+
+def require_artifact_loader_use_flash_false(node: ast.Call, filename: str, cell_idx: int) -> None:
+    """Apply the same portability invariant to TabDPTClassificationPipeline.load_artifact()."""
     value = node.func
-    is_pipeline_constructor = isinstance(value, ast.Name) and value.id == "TabDPTClassificationPipeline"
     is_artifact_loader = (
         isinstance(value, ast.Attribute)
         and value.attr == "load_artifact"
         and isinstance(value.value, ast.Name)
         and value.value.id == "TabDPTClassificationPipeline"
     )
-    if not (is_pipeline_constructor or is_artifact_loader):
-        return
-    has_use_flash_false = any(
-        kw.arg == "use_flash"
-        and isinstance(kw.value, ast.Constant)
-        and kw.value.value is False
-        for kw in node.keywords
-    )
-    if not has_use_flash_false:
+    if is_artifact_loader and not _has_use_flash_false(node):
         raise AssertionError(
-            f"{filename} (cell {cell_idx}): pipeline construction/reload must pass "
+            f"{filename} (cell {cell_idx}): TabDPTClassificationPipeline.load_artifact must pass "
             "`use_flash=False` explicitly for Tesla T4 portability."
         )
 
@@ -140,23 +158,15 @@ def validate_requirements() -> None:
 
 
 def validate_notebook(nb_path: Path) -> None:
+    """Validate generic notebook hygiene first, then known release-profile invariants."""
     if not nb_path.exists():
         raise AssertionError(f"Missing notebook: {nb_path}")
     nb = json.loads(nb_path.read_text(encoding="utf-8"))
     if nb.get("nbformat") != 4:
         raise AssertionError(f"{nb_path.name}: must use nbformat 4")
 
-    expected_profile = EXPECTED_PROFILES[nb_path.name]
-    dimer_meta = nb.get("metadata", {}).get("dimer", {})
-    if dimer_meta.get("notebook_profile") != expected_profile:
-        raise AssertionError(
-            f"{nb_path.name}: metadata.dimer.notebook_profile must be {expected_profile!r}"
-        )
-    if dimer_meta.get("notebook_spec") != "1.0":
-        raise AssertionError(f"{nb_path.name}: metadata.dimer.notebook_spec must be '1.0'")
-
-    markdown = []
-    code_text = []
+    markdown: list[str] = []
+    code_text: list[str] = []
     observed_calls: set[str] = set()
     for idx, cell in enumerate(nb.get("cells", [])):
         source = cell.get("source", "")
@@ -186,12 +196,27 @@ def validate_notebook(nb_path: Path) -> None:
                 f"Syntax error in {nb_path.name} (cell {idx}): {exc}"
             ) from exc
 
+        check_pipeline_use_flash(tree, nb_path.name, idx)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
                 name = call_name(node)
                 if name:
                     observed_calls.add(name)
-                require_use_flash_false(node, nb_path.name, idx)
+                require_artifact_loader_use_flash_false(node, nb_path.name, idx)
+
+    # Unit tests also feed synthetic notebooks into this function to exercise generic
+    # syntax/path hygiene. Profile-specific checks apply only to the two released tutorial names.
+    expected_profile = EXPECTED_PROFILES.get(nb_path.name)
+    if expected_profile is None:
+        return
+
+    dimer_meta = nb.get("metadata", {}).get("dimer", {})
+    if dimer_meta.get("notebook_profile") != expected_profile:
+        raise AssertionError(
+            f"{nb_path.name}: metadata.dimer.notebook_profile must be {expected_profile!r}"
+        )
+    if dimer_meta.get("notebook_spec") != "1.0":
+        raise AssertionError(f"{nb_path.name}: metadata.dimer.notebook_spec must be '1.0'")
 
     all_markdown = "\n".join(markdown)
     all_code = "\n".join(code_text)
