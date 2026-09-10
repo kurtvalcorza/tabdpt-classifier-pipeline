@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 import tabdpt_classifier_pipeline.dimer_runtime as runtime
+from tabdpt_classifier_pipeline import validate_dimer_artifact
 
 
 class _StubPipeline:
@@ -111,3 +112,7 @@ def test_run_dimer_job_propagates_seed_and_emits_full_runtime_contract(tmp_path,
     assert manifest["preprocessing"]["seed"] == runtime_config["seed"]
     context_path = tmp_path / "output" / "artifacts" / "training_context.parquet"
     assert manifest["trainingContext"]["sizeBytes"] == context_path.stat().st_size
+
+    validated, validated_context = validate_dimer_artifact(manifest_path)
+    assert validated["runtimeConfig"] == runtime_config
+    assert validated_context == context_path
