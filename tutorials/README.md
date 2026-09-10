@@ -18,11 +18,13 @@ These notebooks implement the DIMER tutorial contract for TabDPT v1.2 classifica
 
 A notebook MUST NOT be described as release-grade until the exact release revision has documented clean-runtime execution evidence. Static CI validation is necessary but is not execution evidence.
 
-## Reproducible environment
+## Reproducible environment and code reachability
 
-Both notebooks clone an immutable repository revision and install [`requirements-colab.txt`](requirements-colab.txt), which pins the upstream TabDPT v1.2 reproducibility profile and the remaining first-order tutorial runtime dependencies used by this integration. Supported tutorial runtime is Python 3.11–3.13.
+Both notebooks pin immutable repository code commit `3f40bb364c2cc72d5e366910172bff92e1d8d5a2` and install [`requirements-colab.txt`](requirements-colab.txt), which pins the upstream TabDPT v1.2 reproducibility profile and remaining first-order tutorial runtime dependencies. Supported tutorial runtime is Python 3.11–3.13.
 
-The notebooks print the effective Python and principal library versions at runtime. If a core package such as PyTorch is already imported before setup, the tutorial fails early and asks for a fresh runtime rather than hiding a restart boundary.
+The pinned code commit is intentionally kept reachable by branch `anchors/notebook-spec-v1-code-20260910`. That branch is a retention anchor only: the immutable commit SHA, not the branch name, is the tutorial's code version. This prevents squash/rebase integration plus feature-branch deletion from orphaning the revision installed by the notebooks. A future tutorial release may move to a post-integration release commit/tag, but it must update the notebook pin and clean-runtime evidence together.
+
+The notebooks print Python, principal library/framework versions, device/CUDA information, and material compile/FlashAttention/quantization/precision assumptions. If PyTorch is already imported before setup, the tutorial fails early rather than hiding a restart boundary.
 
 ## Model provenance and portability
 
@@ -34,7 +36,19 @@ The repository fixes the model identity to:
 - SHA-256 `06680220fd66c4524051706b98c1c659a674d19d3a766cd0bb276505e99faccd`;
 - upstream inference source commit `9cfb05e0a6bc380ae6c99c08adc8d50dacd4f246`.
 
-The E2E notebook resolves and verifies the pinned checkpoint before model construction. Both notebooks explicitly use `use_flash=False` so the demonstrated path remains portable to common Tesla T4 (`sm_75`) Colab/Kaggle GPUs as well as newer accelerators. CPU execution is supported but may be slower.
+The E2E notebook resolves and verifies the checkpoint before model construction. Both notebooks explicitly use `use_flash=False` so the demonstrated path remains portable to common Tesla T4 (`sm_75`) Colab/Kaggle GPUs as well as newer accelerators. CPU execution is supported but may be slower.
+
+## Production artifact/runtime parity
+
+The tutorial does not define a second serving schema. Its v3 `runtimeConfig` uses the complete production `DimerRuntimeConfig` shape:
+
+- `target_column`, `drop_columns`, `max_train_rows`, `validation_split`;
+- `fine_tune` (required to be `false`);
+- `n_ensembles`, `context_size`, `batch_size`, `temperature`, `seed`.
+
+The strict validator requires that runtime target/drop settings agree with fitted preprocessing, and that `runtimeConfig.seed` equals the preprocessing seed recorded when support state was created. Production `run_dimer_job()` propagates the configured seed into pipeline construction and `fit()`, so the artifact cannot advertise one seed while serializing preprocessing produced under another.
+
+The E2E fresh-boundary check deletes producer-side runtime-control variables and the resolved checkpoint path before reconstruction. Reload inference derives its settings only from the validated serialized `runtimeConfig`; the base checkpoint is then reacquired through the repository's immutable model identity/checksum path.
 
 ## Learning and evidence boundaries
 
@@ -46,7 +60,7 @@ Public tutorial metrics are demonstration/sanity evidence only. TabDPT was pretr
 
 A DIMER TabDPT serving artifact includes `artifact.json` plus `training_context.parquet`; the immutable base checkpoint is referenced separately. The support context is part of the serving state and must receive the same confidentiality, licensing, retention, and disclosure controls as its source data.
 
-The artifact-inference notebook intentionally accepts individual artifact files rather than ZIP/TAR archives. It validates model identity, artifact metadata, fitted preprocessing consistency, and the support-context SHA-256 before reconstruction. A matching manifest and digest establish internal consistency, not sender authenticity.
+The artifact-inference notebook intentionally accepts individual artifact files rather than ZIP/TAR archives. It validates exact model identity, the complete production runtime schema, fitted preprocessing consistency, context size/path/digest, and unexpected files before reconstruction. Matching metadata and digests establish internal consistency, not sender authenticity.
 
 ## Release gate
 
