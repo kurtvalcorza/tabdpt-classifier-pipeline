@@ -66,7 +66,7 @@ Configured `drop_columns` are removed before the fitted schema is established an
 - classifier class order/label mapping;
 - the seed used when fitting/restoring preprocessing and support state.
 
-`preprocessing.dropColumns` is the authoritative value for reconstructing fitted preprocessing. The legacy top-level `dropColumns` field is retained for compatibility and is emitted from the same fitted preprocessing state, so the two values cannot diverge.
+`preprocessing.dropColumns` is the authoritative effective serving value. The legacy top-level `dropColumns` field is emitted from the same fitted preprocessing state, so the two values cannot diverge. `runtimeConfig.drop_columns` preserves the requested DIMER runtime configuration and may therefore include the target column; because the target is never a feature, strict artifact validation removes `runtimeConfig.target_column` from that requested list before comparing it with fitted `preprocessing.dropColumns`.
 
 The state can be reconstructed with `TabularFeatureEncoder.from_state()` without re-inferring pandas dtypes from `training_context.parquet`. This prevents numeric-looking string categories from silently changing semantics during a fresh-process reload.
 
@@ -78,13 +78,13 @@ A v3 `runtimeConfig` is the serialized form of the complete production `DimerRun
 - `fine_tune`;
 - `n_ensembles`, `context_size`, `batch_size`, `temperature`, `seed`.
 
-The strict artifact validator requires the production-shaped runtime schema rather than a tutorial-only subset. It rejects disagreement between runtime target/drop fields and fitted preprocessing, rejects a runtime/preprocessing seed mismatch, verifies exact base-model provenance, validates fitted encoder state, and checks the support-context path, declared size when present, SHA-256, symlink/path containment, and unexpected files.
+The strict artifact validator requires the production-shaped runtime schema rather than a tutorial-only subset. It rejects disagreement between runtime target settings and fitted preprocessing; compares the **effective** runtime drop list (requested drops minus the target) with fitted preprocessing; rejects a runtime/preprocessing seed mismatch; verifies exact base-model provenance; validates fitted encoder state; and checks the support-context path, declared size when present, SHA-256, symlink/path containment, and unexpected files.
 
 ## GPU attention compatibility
 
 The pipeline accepts `use_flash: bool | None`. With the default `None`, FlashAttention is enabled only when CUDA is available on a target device with compute capability 8.0 or newer. CPU execution, unavailable CUDA, Tesla T4 / sm_75-class devices, and capability-detection failures fall back to non-Flash attention. An explicit `True` or `False` remains an operator override.
 
-The Colab/Kaggle tutorial passes `use_flash=False` explicitly so it runs on common Tesla T4 environments.
+The Google Colab tutorial passes `use_flash=False` explicitly so its documented release path remains valid on common Tesla T4 runtimes.
 
 ## Outputs
 
@@ -102,4 +102,4 @@ This runtime performs in-context fitting only. Gradient fine-tuning remains out 
 
 ## Production acceptance boundary
 
-Repository CI proves manifest/runtime mapping, transport-only `model_id` compatibility, bounded/symlink-safe dataset loading, deterministic split/cap behavior including ultra-rare class preservation, configured-seed propagation into fitted preprocessing/artifacts, full artifact-runtime-schema validation, checkpoint-integrity guards, finite dataset-limit validation, artifact target/drop/seed consistency, FlashAttention capability-selection logic, license/provenance presence, and static tutorial validity across currently released Python 3.10–3.14. Final acceptance still requires a real pinned checkpoint on GPU and an on-platform execution/deployment test.
+Repository CI proves manifest/runtime mapping, transport-only `model_id` compatibility, bounded/symlink-safe dataset loading, deterministic split/cap behavior including ultra-rare class preservation, configured-seed propagation into fitted preprocessing/artifacts, full artifact-runtime-schema validation, checkpoint-integrity guards, finite dataset-limit validation, artifact target/effective-drop/seed consistency, FlashAttention capability-selection logic, license/provenance presence, and static tutorial validity across currently released Python 3.10–3.14. Final acceptance still requires a real pinned checkpoint on GPU and an on-platform execution/deployment test.
