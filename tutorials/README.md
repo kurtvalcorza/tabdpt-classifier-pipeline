@@ -9,10 +9,14 @@ These interactive tutorials demonstrate how to run TabDPT Classifier in standalo
 
 ## Available Tutorials
 
-| Notebook | Accelerator | Expected Runtime | Focus |
-|---|---|---|---|
-| [`tabdpt_classifier_colab.ipynb`](tabdpt_classifier_colab.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_colab.ipynb) | GPU (Tesla T4 or newer; CPU supported for smoke test) | ~1–2 minutes | End-to-end tutorial: install package, fit support table in-context, predict classes and probabilities, evaluate test holdout. |
-| [`tabdpt_classifier_artifact_inference_colab.ipynb`](tabdpt_classifier_artifact_inference_colab.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_artifact_inference_colab.ipynb) | GPU (Tesla T4 or newer; CPU supported) | ~1–2 minutes | Artifact inference tutorial: load exported DIMER bundle (`artifact.json` + `training_context.parquet`), verify context digest, score unlabelled batch data without refitting. |
+**DIMER Notebook Specification:** `1.0`
+
+> **Release status:** both notebooks are `SMOKE` profile — engineering/integration checks, not release-grade tutorials. `tabdpt_classifier_artifact_inference_colab.ipynb` creates the artifact in the same session it reloads (NOTEBOOK_SPEC §24.6), so it is not an `ARTIFACT-INFERENCE` tutorial. The repository does not yet ship a release-grade `E2E`/`ARTIFACT-INFERENCE` pair; see the sibling `tabdpt-regressor-pipeline` for the target shape.
+
+| Notebook | Profile | Accelerator | Expected Runtime | Focus |
+|---|---|---|---|---|
+| [`tabdpt_classifier_colab.ipynb`](tabdpt_classifier_colab.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_colab.ipynb) `SMOKE` | | GPU (Tesla T4 or newer; CPU supported for smoke test) | ~1–2 minutes | End-to-end tutorial: install package, fit support table in-context, predict classes and probabilities, evaluate test holdout. |
+| [`tabdpt_classifier_artifact_inference_colab.ipynb`](tabdpt_classifier_artifact_inference_colab.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_artifact_inference_colab.ipynb) `SMOKE` | | GPU (Tesla T4 or newer; CPU supported) | ~1–2 minutes | Artifact inference tutorial: load exported DIMER bundle (`artifact.json` + `training_context.parquet`), verify context digest, score unlabelled batch data without refitting. |
 
 ---
 
