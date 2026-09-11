@@ -59,7 +59,7 @@ Production enablement requires completing this 9-step gate. Steps 1–6 are repo
 2. **Adversarial dataset rejection:** Confirm validator rejects duplicate splits, nested/zip-bomb archives, path traversal, symlinked roots, and malformed configurations with explicit errors.
 3. **Reproducible sample verification:** Confirm `examples/build_sample_datasets.py` deterministically regenerates `examples/sample-data/breast-cancer-wisconsin.zip` matching documented checksums.
 4. **Tutorial AST & path validation:** Confirm `scripts/validate_colab_tutorial.py` passes on all notebooks under `tutorials/`, verifying AST syntax, path safety, and explicit `use_flash=False`.
-5. **Fresh-process reload test:** Confirm `tutorials/tabdpt_classifier_artifact_inference_colab.ipynb` successfully loads `artifact.json` + `training_context.parquet` and reproduces expected outputs without refitting.
+5. **Fresh-process reload test:** Run `scripts/execute_notebook_release.py` (real IPython kernels): the `E2E` notebook must export `artifact.json` + `training_context.parquet` and pass its no-refit reload assertions, and `tutorials/tabdpt_classifier_artifact_inference_colab.ipynb` must consume that artifact in a second fresh kernel with `preprocessing_restored_ = True`.
 6. **Provenance integrity:** Confirm `result.json` records validation metrics, base model revision, context SHA-256, and runtime configurations.
 
 ### Platform-owned steps

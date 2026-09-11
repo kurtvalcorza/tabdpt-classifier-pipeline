@@ -9,7 +9,7 @@ DIMER-ready inference pipeline for **TabDPT v1.2 (TabDPT-Turbo)**, an open-weigh
 - immutable upstream weight provenance and SHA-256 verification;
 - a DIMER manifest plus executable local/on-prem runtime adapter;
 - deterministic validation splitting and support-row capping from DIMER runtime controls;
-- a lightweight Colab tutorial and CI tests that do not download the 254 MB model in routine CI.
+- a DIMER Notebook Specification 1.0 tutorial pair (`E2E` + `ARTIFACT-INFERENCE`, see [`tutorials/README.md`](tutorials/README.md)) with a verified no-refit artifact reload, plus CI tests that do not download the 254 MB model in routine CI.
 
 ## Pinned model identity
 
