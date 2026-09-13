@@ -7,6 +7,12 @@ from .artifact import (
     validate_artifact_bundle,
 )
 from .pipeline import (
+    DEFAULT_WEIGHTS_DIR,
+    MANIFEST_NAME,
+    MODEL_ID,
+    MODEL_KEY,
+    MODEL_LICENSE,
+    MODEL_REVISION,
     TABDPT_HF_REPO,
     TABDPT_HF_REVISION,
     TABDPT_UPSTREAM_CODE_COMMIT,
@@ -15,12 +21,20 @@ from .pipeline import (
     TabDPTClassificationPipeline,
     TabularFeatureEncoder,
     resolve_tabdpt_weights,
+    stage_missing_files,
+    verify_snapshot,
 )
 
 __all__ = [
     "ARTIFACT_FORMAT",
     "ARTIFACT_FORMAT_VERSION",
+    "DEFAULT_WEIGHTS_DIR",
     "EXPECTED_BASE_MODEL",
+    "MANIFEST_NAME",
+    "MODEL_ID",
+    "MODEL_KEY",
+    "MODEL_LICENSE",
+    "MODEL_REVISION",
     "TABDPT_HF_REPO",
     "TABDPT_HF_REVISION",
     "TABDPT_UPSTREAM_CODE_COMMIT",
@@ -31,5 +45,7 @@ __all__ = [
     "export_artifact_bundle",
     "load_verified_artifact",
     "resolve_tabdpt_weights",
+    "stage_missing_files",
     "validate_artifact_bundle",
+    "verify_snapshot",
 ]

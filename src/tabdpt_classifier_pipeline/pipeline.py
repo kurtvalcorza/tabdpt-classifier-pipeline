@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,8 +13,19 @@ from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
 TABDPT_PACKAGE_VERSION = "1.2.0"
 TABDPT_UPSTREAM_CODE_COMMIT = "9cfb05e0a6bc380ae6c99c08adc8d50dacd4f246"
-TABDPT_HF_REPO = "Layer6/TabDPT"
-TABDPT_HF_REVISION = "4462ffbd1d8dea25d4862d30beed4b70cd596ae5"
+
+# Fleet snapshot identity (DIMER Notebook Specification 1.1, ST3/MOD13). The pinned upstream model is
+# unchanged; these are the fleet-standard names for the same repository, revision, license and snapshot
+# key. The TABDPT_* spellings below stay as the package's published names and alias these constants.
+MODEL_ID = "Layer6/TabDPT"
+MODEL_REVISION = "4462ffbd1d8dea25d4862d30beed4b70cd596ae5"
+MODEL_LICENSE = "apache-2.0"
+MODEL_KEY = "tabdpt-1.2"
+MANIFEST_NAME = "dimer-base-manifest.json"
+DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parents[2] / "weights" / MODEL_KEY
+
+TABDPT_HF_REPO = MODEL_ID
+TABDPT_HF_REVISION = MODEL_REVISION
 TABDPT_WEIGHT_FILENAME = "tabdpt1_2.safetensors"
 TABDPT_WEIGHT_SHA256 = "06680220fd66c4524051706b98c1c659a674d19d3a766cd0bb276505e99faccd"
 
@@ -43,6 +55,86 @@ def resolve_tabdpt_weights(model_weight_path: str | Path | None = None, cache_di
             f"TabDPT weight SHA-256 mismatch: expected {TABDPT_WEIGHT_SHA256}, got {actual}"
         )
     return path
+
+
+def verify_snapshot(path: str | Path | None = None) -> dict[str, Any]:
+    """Check a local pinned snapshot against its manifest; raise naming the first mismatch.
+
+    The manifest is the parity anchor the standalone tutorial carries inline (NOTEBOOK_SPEC 1.1 ST3).
+    The package's own ``TABDPT_WEIGHT_SHA256`` is not replaced by it: the manifest entry for
+    ``TABDPT_WEIGHT_FILENAME`` must equal that constant, so the two can never diverge silently.
+    """
+    root = Path(path or DEFAULT_WEIGHTS_DIR)
+    manifest_path = root / MANIFEST_NAME
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"snapshot manifest not found: {manifest_path}")
+    with open(manifest_path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if manifest.get("modelId") != MODEL_ID:
+        raise ValueError(f"manifest modelId {manifest.get('modelId')!r} != {MODEL_ID!r}")
+    if manifest.get("revision") != MODEL_REVISION:
+        raise ValueError(f"manifest revision {manifest.get('revision')!r} != {MODEL_REVISION!r}")
+    entries = manifest.get("files", [])
+    declared = {entry["path"]: entry["sha256"] for entry in entries}
+    if declared.get(TABDPT_WEIGHT_FILENAME) != TABDPT_WEIGHT_SHA256:
+        raise ValueError(
+            f"manifest {TABDPT_WEIGHT_FILENAME} sha256 {declared.get(TABDPT_WEIGHT_FILENAME)!r} "
+            f"!= TABDPT_WEIGHT_SHA256 {TABDPT_WEIGHT_SHA256!r}"
+        )
+    for entry in entries:
+        file_path = root / entry["path"]
+        if not file_path.is_file():
+            raise FileNotFoundError(f"snapshot file missing: {file_path}")
+        size = file_path.stat().st_size
+        if size != entry["bytes"]:
+            raise ValueError(f"{entry['path']}: size {size} != manifest {entry['bytes']}")
+        digest = sha256_file(file_path)
+        if digest != entry["sha256"]:
+            raise ValueError(f"{entry['path']}: sha256 {digest} != manifest {entry['sha256']}")
+    return {"path": str(root), **manifest}
+
+
+def _hub_download(relative_path: str, root: Path) -> None:
+    """Fetch one manifest-listed file at MODEL_REVISION straight into the snapshot directory."""
+    hf_hub_download(
+        repo_id=MODEL_ID,
+        filename=relative_path,
+        revision=MODEL_REVISION,
+        local_dir=str(root),
+    )
+
+
+def stage_missing_files(
+    path: str | Path | None = None,
+    *,
+    allow_download: bool = False,
+    downloader: Callable[[str, Path], None] | None = None,
+) -> list[str]:
+    """Fetch manifest-listed files that are absent locally (a clone commits the manifest but
+    git-ignores the checkpoint). Returns the relative paths fetched; ``verify_snapshot`` still runs after."""
+    root = Path(path) if path is not None else DEFAULT_WEIGHTS_DIR
+    manifest_path = root / MANIFEST_NAME
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"manifest not found: {manifest_path}")
+    with open(manifest_path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if manifest.get("modelId") != MODEL_ID or manifest.get("revision") != MODEL_REVISION:
+        raise ValueError(
+            f"manifest names {manifest.get('modelId')}@{manifest.get('revision')}, "
+            f"package pins {MODEL_ID}@{MODEL_REVISION}; refusing to stage"
+        )
+    missing = [entry["path"] for entry in manifest["files"] if not (root / entry["path"]).is_file()]
+    if not missing:
+        return []
+    if not allow_download:
+        raise FileNotFoundError(
+            f"snapshot at {root} is missing {missing}; "
+            f"pass allow_download=True to fetch them at {MODEL_REVISION}"
+        )
+    fetch = downloader or _hub_download
+    for relative_path in missing:
+        fetch(relative_path, root)
+    return missing
 
 
 def _resolve_use_flash(requested: bool | None, device: str | None) -> bool:
@@ -218,6 +310,28 @@ class TabDPTClassificationPipeline:
         self.drop_columns_: list[str] = []
         self.class_labels_: list[str] = []
         self.estimator: Any | None = None
+        self.source: str = "local-snapshot" if model_weight_path is not None else "hf-cache"
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        weights_dir: str | Path | None = None,
+        allow_download: bool = False,
+        **kwargs: Any,
+    ) -> "TabDPTClassificationPipeline":
+        """Build a pipeline whose base checkpoint is the digest-verified snapshot in ``weights_dir``.
+
+        Stages only the manifest entries that are absent (at ``MODEL_REVISION``), re-hashes every entry
+        against the manifest, and then pins ``model_weight_path`` to the verified file, so the in-context
+        ``fit`` that follows can load nothing else. No model is loaded here.
+        """
+        root = Path(weights_dir or DEFAULT_WEIGHTS_DIR)
+        stage_missing_files(root, allow_download=allow_download)
+        verify_snapshot(root)
+        weight_path = root / TABDPT_WEIGHT_FILENAME
+        pipeline = cls(model_weight_path=weight_path, **kwargs)
+        pipeline.source = "local-snapshot"
+        return pipeline
 
     def fit(
         self,
