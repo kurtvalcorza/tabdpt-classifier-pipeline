@@ -117,7 +117,9 @@ def test_verify_snapshot_reports_a_missing_file(tmp_path: Path, monkeypatch: pyt
         verify_snapshot(root)
 
 
-def test_stage_missing_files_is_a_no_op_when_complete(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stage_missing_files_is_a_no_op_when_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(pipe_mod, "TABDPT_WEIGHT_SHA256", DIGEST)
     root = _snapshot(tmp_path)
     assert stage_missing_files(root) == []
@@ -150,7 +152,9 @@ def test_stage_missing_files_refuses_a_foreign_manifest(tmp_path: Path) -> None:
         stage_missing_files(root, allow_download=True, downloader=lambda *a: None)
 
 
-def test_from_pretrained_pins_the_verified_weight_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_from_pretrained_pins_the_verified_weight_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(pipe_mod, "TABDPT_WEIGHT_SHA256", DIGEST)
     root = _snapshot(tmp_path)
     pipe = TabDPTClassificationPipeline.from_pretrained(weights_dir=root, seed=7)

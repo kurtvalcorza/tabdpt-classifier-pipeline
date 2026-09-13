@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,10 @@ TABDPT_HF_REPO = MODEL_ID
 TABDPT_HF_REVISION = MODEL_REVISION
 TABDPT_WEIGHT_FILENAME = "tabdpt1_2.safetensors"
 TABDPT_WEIGHT_SHA256 = "06680220fd66c4524051706b98c1c659a674d19d3a766cd0bb276505e99faccd"
+
+MIN_CLASSES = 2  # `fit` refuses a target with fewer distinct classes
+DECISION_RULE = "argmax"  # `predict` reports the class with the highest probability; no threshold is shipped
+METRIC_IDS = ("accuracy", "log_loss", "roc_auc")  # the ids `evaluate` reports (roc_auc: binary targets only)
 
 
 def sha256_file(path: str | Path) -> str:
@@ -166,7 +170,7 @@ class TabularFeatureEncoder:
         self.category_maps: dict[str, dict[str, int]] = {}
         self.is_fitted = False
 
-    def fit(self, frame: pd.DataFrame) -> "TabularFeatureEncoder":
+    def fit(self, frame: pd.DataFrame) -> TabularFeatureEncoder:
         if frame.columns.duplicated().any():
             raise ValueError("Duplicate feature column names are not supported")
         if frame.shape[1] == 0:
@@ -204,7 +208,7 @@ class TabularFeatureEncoder:
         }
 
     @classmethod
-    def from_state(cls, state: dict[str, Any]) -> "TabularFeatureEncoder":
+    def from_state(cls, state: dict[str, Any]) -> TabularFeatureEncoder:
         if not isinstance(state, dict) or state.get("schemaVersion") != cls.STATE_SCHEMA_VERSION:
             raise ValueError("Unsupported feature-encoder state schema")
         feature_columns = state.get("featureColumns")
@@ -287,6 +291,229 @@ def _set_deterministic_seed(seed: int | None) -> None:
         pass
 
 
+INPUT_SCHEMA: dict[str, Any] = {
+    "input": (
+        "pandas.DataFrame, one row per example; feature columns of any dtype plus, for fit/evaluate, "
+        "a target column"
+    ),
+    "columns": "unique column names; `drop_columns` are removed before encoding",
+    "target": "no missing values; labels are compared as strings and sorted to define the class order",
+    "classes": [MIN_CLASSES, None],
+    "features": [1, None],
+    "inference_input": (
+        "exactly the fitted feature columns (after `drop_columns`), no target or output columns"
+    ),
+    "preprocessing": (
+        "numeric columns are kept (NaN passes to TabDPT's support-fitted mean imputer); other columns "
+        "are mapped to fitted integer codes with dedicated missing and unknown codes; upstream "
+        "standardisation and any PCA basis are fitted on the support rows and reused at inference"
+    ),
+}
+
+
+def _check_fit_inputs(
+    frame: pd.DataFrame, target_column: str, drop_columns: Sequence[str] | None
+) -> tuple[list[str], pd.DataFrame, pd.Series, list[str]]:
+    """The checks `fit` applies, in `fit`'s order, raising `fit`'s errors; returns what `fit` derives."""
+    if frame.columns.duplicated().any():
+        raise ValueError("Duplicate column names are not supported")
+    if target_column not in frame.columns:
+        raise ValueError(f"Target column {target_column!r} not found")
+    if frame[target_column].isna().any():
+        raise ValueError("Classification target contains missing values")
+    drops = list(dict.fromkeys(c for c in (drop_columns or []) if c != target_column))
+    features = frame.drop(columns=[target_column, *drops], errors="ignore")
+    labels = frame[target_column].map(str)
+    class_labels = sorted(labels.unique().tolist())
+    if len(class_labels) < MIN_CLASSES:
+        raise ValueError("Classification requires at least two classes")
+    if features.shape[1] == 0:
+        raise ValueError("At least one feature column is required")
+    return drops, features, labels, class_labels
+
+
+def _check_inference_inputs(
+    frame: pd.DataFrame, required: Sequence[str], drop_columns: Sequence[str]
+) -> pd.DataFrame:
+    """The schema check `predict_proba` applies to an inference table; returns the ordered feature frame."""
+    effective = frame.drop(columns=list(drop_columns), errors="ignore")
+    missing = [col for col in required if col not in effective.columns]
+    extra = [col for col in effective.columns if col not in required]
+    if missing or extra:
+        raise ValueError(f"Feature schema mismatch; missing={missing}, extra={extra}")
+    return effective.loc[:, list(required)]
+
+
+def validate_inputs(
+    frame: pd.DataFrame,
+    target_column: str | None = "target",
+    drop_columns: Sequence[str] | None = None,
+    *,
+    feature_columns: Sequence[str] | None = None,
+    names: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Validation stage: return the input manifest (schema, observed table properties, verdict).
+
+    With a ``target_column`` the table is checked exactly as ``fit`` checks it; with
+    ``target_column=None`` it is an inference table checked against ``feature_columns`` (the fitted
+    schema) exactly as ``predict_proba`` checks it. Rejection is reported by raising the same error the
+    core method raises; a caller that wants the finding recorded catches it and stores ``str(exc)``.
+    """
+    if names is not None and len(names) != 1:
+        raise ValueError("names must have exactly one entry (the table's id)")
+    table_id = names[0] if names else "table-0"
+    if target_column is None:
+        if feature_columns is None:
+            raise ValueError("feature_columns is required to validate an inference table")
+        drops = list(drop_columns or [])
+        checked = _check_inference_inputs(frame, list(feature_columns), drops)
+        missing_counts = checked.isna().sum()
+        entry: dict[str, Any] = {
+            "id": table_id,
+            "mode": "inference",
+            "rows": len(checked),
+            "feature_columns": list(checked.columns),
+            "missing_value_columns": {str(col): int(n) for col, n in missing_counts.items() if n > 0},
+        }
+    else:
+        drops, features, labels, class_labels = _check_fit_inputs(frame, target_column, drop_columns)
+        numeric = [col for col in features.columns if pd.api.types.is_numeric_dtype(features[col])]
+        missing_counts = features.isna().sum()
+        counts = labels.value_counts().sort_index()
+        entry = {
+            "id": table_id,
+            "mode": "fit",
+            "rows": len(frame),
+            "feature_columns": list(features.columns),
+            "numeric_columns": numeric,
+            "categorical_columns": [col for col in features.columns if col not in numeric],
+            "missing_value_columns": {str(col): int(n) for col, n in missing_counts.items() if n > 0},
+            "classes": class_labels,
+            "class_counts": {str(label): int(n) for label, n in counts.items()},
+        }
+    return {
+        "schema": dict(INPUT_SCHEMA),
+        "inputs": [entry],
+        "target_column": target_column,
+        "drop_columns": drops,
+        "verdict": "accepted",
+        "findings": [],
+        "model_id": MODEL_ID,
+        "model_revision": MODEL_REVISION,
+    }
+
+
+def majority_class_baseline(support_labels: Sequence[Any], holdout_labels: Sequence[Any]) -> dict[str, float]:
+    """The trivial baseline `evaluate` is compared against: always predict the most frequent support class.
+
+    Its probability for that class is the class's support frequency, the remainder spread evenly over
+    the other classes; the metric ids and their definitions are the ones ``evaluate`` reports.
+    """
+    support = pd.Series(list(support_labels)).map(str)
+    holdout = pd.Series(list(holdout_labels)).map(str)
+    class_labels = sorted(support.unique().tolist())
+    if len(class_labels) < MIN_CLASSES:
+        raise ValueError("Classification requires at least two classes")
+    if holdout.empty:
+        raise ValueError("holdout_labels must not be empty")
+    unknown = sorted(set(holdout.unique()) - set(class_labels))
+    if unknown:
+        raise ValueError(f"Evaluation contains unseen target classes: {unknown}")
+    majority = str(support.value_counts().sort_index().idxmax())
+    frequency = float((support == majority).mean())
+    proba = np.full((len(holdout), len(class_labels)), (1.0 - frequency) / max(len(class_labels) - 1, 1))
+    proba[:, class_labels.index(majority)] = frequency
+    metrics = {
+        "accuracy": float(accuracy_score(holdout, np.full(len(holdout), majority))),
+        "log_loss": float(log_loss(holdout, proba, labels=class_labels)),
+    }
+    if len(class_labels) == 2 and holdout.nunique() == 2:
+        metrics["roc_auc"] = 0.5
+    return metrics
+
+
+def evaluation_report(
+    metrics: Mapping[str, float] | None,
+    *,
+    baseline: Mapping[str, float] | None = None,
+    n_holdout: int | None = None,
+    class_labels: Sequence[str] | None = None,
+    sample_kind: str = "sample",
+    estimation: str = "single seeded stratified holdout; no dispersion estimate",
+) -> dict[str, Any]:
+    """Evaluation stage: a machine-readable report even when nothing is measurable.
+
+    ``metrics`` is the dict ``evaluate`` returns (ids ``accuracy``, ``log_loss``, ``roc_auc``) and
+    ``baseline`` the dict ``majority_class_baseline`` returns; the report is ``sample-sanity`` evidence.
+    Without metrics (no labelled holdout) the verdict is ``not-measurable`` and the report says what
+    labelled data would make the task measurable.
+    """
+    base: dict[str, Any] = {
+        "task": "tabular classification by in-context conditioning on labelled support rows",
+        "decision_rule": DECISION_RULE,
+        "score_semantics": (
+            "uncalibrated class probabilities, one column per fitted class in sorted class order"
+        ),
+        "sample_kind": sample_kind,
+        "n_holdout": n_holdout,
+        "class_labels": None if class_labels is None else [str(label) for label in class_labels],
+        "baselines": [],
+        "model_id": MODEL_ID,
+        "model_revision": MODEL_REVISION,
+    }
+    if metrics is None:
+        return {
+            **base,
+            "metrics": [],
+            "verdict": "not-measurable",
+            "reason": "no labelled holdout rows were supplied for the scored table",
+            "needs": (
+                "a labelled holdout table whose target column contains only classes present in the support "
+                "rows, scored with `evaluate` (accuracy, log_loss, roc_auc) against "
+                "`majority_class_baseline`; "
+                "an independent test set from the deployment domain plus calibration data before any "
+                "probability threshold is chosen"
+            ),
+        }
+    unknown = sorted(set(metrics) - set(METRIC_IDS))
+    if unknown:
+        raise ValueError(f"unknown metric ids {unknown}; `evaluate` reports {list(METRIC_IDS)}")
+    reported = [
+        {
+            "id": metric_id,
+            "value": float(metrics[metric_id]),
+            "higher_is_better": metric_id != "log_loss",
+            "estimation": estimation,
+        }
+        for metric_id in METRIC_IDS
+        if metric_id in metrics
+    ]
+    baselines = []
+    if baseline is not None:
+        baselines.append(
+            {
+                "id": "majority_class",
+                "metrics": [
+                    {"id": metric_id, "value": float(baseline[metric_id])}
+                    for metric_id in METRIC_IDS
+                    if metric_id in baseline
+                ],
+            }
+        )
+    rows = "an unstated number of" if n_holdout is None else str(n_holdout)
+    return {
+        **base,
+        "metrics": reported,
+        "baselines": baselines,
+        "verdict": "sample-sanity",
+        "reason": f"{rows} labelled holdout row(s) from one seeded split; tutorial evidence, not a benchmark",
+        "needs": (
+            "an independent, domain-representative labelled test set for any generalisable quality "
+            "claim, and calibration data before the uncalibrated probabilities are thresholded"
+        ),
+    }
+
+
 class TabDPTClassificationPipeline:
     def __init__(
         self,
@@ -318,7 +545,7 @@ class TabDPTClassificationPipeline:
         weights_dir: str | Path | None = None,
         allow_download: bool = False,
         **kwargs: Any,
-    ) -> "TabDPTClassificationPipeline":
+    ) -> TabDPTClassificationPipeline:
         """Build a pipeline whose base checkpoint is the digest-verified snapshot in ``weights_dir``.
 
         Stages only the manifest entries that are absent (at ``MODEL_REVISION``), re-hashes every entry
@@ -340,21 +567,13 @@ class TabDPTClassificationPipeline:
         drop_columns: list[str] | None = None,
         seed: int | None = None,
     ):
-        if frame.columns.duplicated().any():
-            raise ValueError("Duplicate column names are not supported")
-        if target_column not in frame.columns:
-            raise ValueError(f"Target column {target_column!r} not found")
-        if frame[target_column].isna().any():
-            raise ValueError("Classification target contains missing values")
+        # The same checks `validate_inputs` applies (one shared function, so they cannot diverge).
+        drops, features, labels, class_labels = _check_fit_inputs(frame, target_column, drop_columns)
         if seed is not None:
             self.seed = seed
         _set_deterministic_seed(self.seed)
-        self.drop_columns_ = list(dict.fromkeys(c for c in (drop_columns or []) if c != target_column))
-        features = frame.drop(columns=[target_column, *self.drop_columns_], errors="ignore")
-        labels = frame[target_column].map(str)
-        self.class_labels_ = sorted(labels.unique().tolist())
-        if len(self.class_labels_) < 2:
-            raise ValueError("Classification requires at least two classes")
+        self.drop_columns_ = drops
+        self.class_labels_ = class_labels
         label_to_id = {label: idx for idx, label in enumerate(self.class_labels_)}
         y = labels.map(label_to_id).to_numpy(dtype=np.int64)
         X = self.feature_encoder.fit_transform(features)
@@ -419,7 +638,7 @@ class TabDPTClassificationPipeline:
         context_frame: pd.DataFrame,
         preprocessing_state: dict[str, Any],
         seed: int | None = None,
-    ) -> "TabDPTClassificationPipeline":
+    ) -> TabDPTClassificationPipeline:
         """Condition the pipeline on an in-context support table using restored preprocessing state without refitting."""
         if not isinstance(preprocessing_state, dict) or preprocessing_state.get("schemaVersion") != 1:
             raise ValueError("Unsupported preprocessing state schemaVersion")
@@ -447,7 +666,7 @@ class TabDPTClassificationPipeline:
 
         labels = context_frame[target_column].map(str)
         label_to_id = {label: idx for idx, label in enumerate(self.class_labels_)}
-        unmapped = [l for l in labels.unique() if l not in label_to_id]
+        unmapped = [label for label in labels.unique() if label not in label_to_id]
         if unmapped:
             raise ValueError(f"Context frame contains labels not in classLabels: {unmapped}")
         y = labels.map(label_to_id).to_numpy(dtype=np.int64)
@@ -510,7 +729,7 @@ class TabDPTClassificationPipeline:
         compile_model: bool = False,
         verbose: bool = False,
         seed: int | None = None,
-    ) -> "TabDPTClassificationPipeline":
+    ) -> TabDPTClassificationPipeline:
         """Load a DIMER serving artifact bundle, restoring preprocessing from manifest without refitting."""
         artifact_file = Path(artifact_path)
         if not artifact_file.is_file():
@@ -585,13 +804,7 @@ class TabDPTClassificationPipeline:
             raise RuntimeError("Pipeline is not fitted")
 
     def _feature_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
-        effective = frame.drop(columns=self.drop_columns_, errors="ignore")
-        required = self.feature_encoder.feature_columns
-        missing = [col for col in required if col not in effective.columns]
-        extra = [col for col in effective.columns if col not in required]
-        if missing or extra:
-            raise ValueError(f"Feature schema mismatch; missing={missing}, extra={extra}")
-        return effective.loc[:, required]
+        return _check_inference_inputs(frame, self.feature_encoder.feature_columns, self.drop_columns_)
 
     def predict_proba(
         self,

@@ -67,7 +67,7 @@ Model evaluation in the pipeline and upstream benchmarks reports:
 - **Log Loss (Cross-Entropy)**: Evaluates the quality and calibration of predicted class probability distributions.
 - **Binary ROC-AUC**: Measures ranking discrimination across classification thresholds on binary tasks.
 
-These metrics assess both discrete decision accuracy and probabilistic confidence calibration without arbitrary threshold selection.
+These metrics assess both discrete decision accuracy and probabilistic confidence calibration without arbitrary threshold selection. The standalone tutorials write them through the package's public `evaluation_report` helper (`outputs/<stem>_evaluation_report.json`, verdict `sample-sanity` with the `majority_class_baseline` comparison, or `not-measurable` when no labelled rows exist).
 
 ###### Decision thresholds
 
@@ -96,7 +96,7 @@ The model is **not** certified, validated, or intended for autonomous decision-m
 - Self-contained open weights (`tabdpt1_2.safetensors`) with cryptographic SHA-256 verification.
 - Pinned upstream Hugging Face revision (`4462ffbd1d8dea25d4862d30beed4b70cd596ae5`).
 - Balanced context subsampling during support set construction to protect against severe class imbalance.
-- Strict input schema validation preventing silent column misalignment.
+- Strict input schema validation preventing silent column misalignment; the public `validate_inputs` helper applies the same checks and records the verdict and any rejection finding in an input manifest before any model execution.
 - Deterministic random seed controls for reproducible sampling and ensembling.
 
 ###### Risks and harms
