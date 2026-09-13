@@ -29,7 +29,7 @@ Supervised tabular classification tasks, including binary and multiclass predict
 
 ###### Primary Intended Users
 
-Machine learning engineers, data scientists, researchers, and software engineers developing predictive pipelines for structured datasets in enterprise, scientific, or academic environments. Users are expected to understand data validation, leakage prevention, class imbalance, and standard evaluation methodologies.
+Machine learning engineers, data scientists, researchers, and software engineers developing predictive pipelines for structured datasets in enterprise, scientific, or academic environments. The envisioned deployment setting is internal enterprise or research use through the DIMER platform, not a public-facing service. Users are expected to understand data validation, leakage prevention, class imbalance, and standard classification evaluation methodology, and to recognise that `predict()` is an implicit `argmax` over `predict_proba()` whose probabilities have not been calibrated for their domain; a user who would ship the default decision rule into a cost-asymmetric setting without re-thresholding on held-out data is outside the assumed competency.
 
 ###### Out-of-scope use cases
 
@@ -108,10 +108,11 @@ The model is **not** certified, validated, or intended for autonomous decision-m
 
 ###### Use cases
 
-Disturbing or prohibited use cases include:
+Distinct from the capability and decision boundaries listed under *Out-of-scope use cases*, the developers consider the following uses prohibited even where the model would produce a numerically plausible label:
 - Mass surveillance, unauthorized biometric or demographic profiling, or social scoring systems.
-- Unlawful discrimination in employment, housing, credit, or healthcare access.
-- Predictive scoring designed for predatory financial targeting or deceptive manipulation.
+- Unlawful discrimination in employment, housing, credit, insurance, education, or healthcare access, including classification on a target that proxies a protected attribute.
+- Predictive scoring designed for predatory financial targeting or deceptive manipulation, or presenting an uncalibrated class probability as a certified risk estimate.
+- Any use that violates the Apache-2.0 terms of the upstream Layer6/TabDPT weights or the terms of the DIMER deployment.
 
 ---
 
