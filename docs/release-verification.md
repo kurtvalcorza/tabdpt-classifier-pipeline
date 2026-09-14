@@ -124,7 +124,7 @@ for the stated runtime, not general estimates.
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
 | 2026-09-11 | `45071534d021` (clean tree) — **previous repository-installing pair, spec 1.0** | Local host, Windows 11, Python 3.12.10, torch 2.7.1+cu128, tabdpt 1.2.0, numpy 2.3.0 (the `requirements-colab.txt` lock set of that revision), RTX 5070 Ti, `use_flash=False`; `scripts/execute_notebook_release.py --skip-bootstrap`, one fresh IPython kernel per notebook | E2E default sample path, then ARTIFACT-INFERENCE in a second kernel with the artifact and 8 fresh rows supplied externally | not recorded | **PASS** — E2E: sample accuracy 0.9912 / log_loss 0.0594 / roc_auc 0.9977 vs majority baseline 0.6316; artifact exported; no-refit reload with identical labels and equivalent probabilities. Companion: `preprocessing_restored_ = True`, 8 rows scored. **Not a Colab run, and not a run of the standalone carrier** — kept as evidence that the package paths the standalone notebooks carry executed on that revision |
-| | | | Standalone E2E default sample path | | pending — queued to the GPU lane |
+| 2026-09-14 | `9c6cc36` / `9ec14a6daa7b` | Kaggle T4 (`kurtvalcorza/dimer-nb2-tabdpt-classifier` v1) | Default sample path | 223.1 s | **PASSED** — 11/11 ok code cells executed cleanly, 4 files, 254 MB staged |
 | | | | Standalone ARTIFACT-INFERENCE with an external artifact | | pending — queued to the GPU lane |
 
 ## Current status

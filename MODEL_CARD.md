@@ -1,6 +1,6 @@
 ---
 license: apache-2.0
-model_card_spec: "1.0"
+model_card_spec: "1.1"
 pipeline_tag: tabular-classification
 tags:
   - tabular-classification
@@ -8,6 +8,8 @@ tags:
   - in-context-learning
   - tabdpt
 base_model: Layer6/TabDPT
+date_published: "2025-06-18"
+date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt`, https://huggingface.co/api/models/Layer6/TabDPT)"
 ---
 
 # TabDPT Classifier v1.2
@@ -17,7 +19,7 @@ base_model: Layer6/TabDPT
 [![arXiv](https://img.shields.io/badge/arXiv-2608.01400-b31b1b.svg)](https://arxiv.org/abs/2608.01400)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-###### Description
+#### Description
 
 TabDPT v1.2, released as **TabDPT-Turbo**, is an open-weight tabular foundation model designed for in-context supervised classification on structured datasets. Rather than iteratively training neural network weights or tree ensembles on each new dataset via gradient descent or heuristic splits, TabDPT processes a labelled support table (the in-context prompt) alongside unlabelled test observations through a specialized tabular Transformer architecture. Task adaptation occurs entirely at inference time through in-context forward evaluation without gradient updates or per-dataset training loops. For single-context queries without ensembling, inference requires only a forward evaluation; when ensembling over multiple support subsets (`n_ensembles > 1`) or batching query chunks, predictions are aggregated across multiple forward passes. Pretrained on a diverse corpus of real-world tabular datasets and optimized with FlashAttention and key-value caching in v1.2 (Turbo), it delivers rapid, zero-shot tabular classification across binary and multiclass problems without per-dataset hyperparameter tuning. This repository packages the upstream classification estimator for reproducible, DIMER-ready deployment.
 
@@ -67,7 +69,7 @@ Model evaluation in the pipeline and upstream benchmarks reports:
 - **Log Loss (Cross-Entropy)**: Evaluates the quality and calibration of predicted class probability distributions.
 - **Binary ROC-AUC**: Measures ranking discrimination across classification thresholds on binary tasks.
 
-These metrics assess both discrete decision accuracy and probabilistic confidence calibration without arbitrary threshold selection.
+These metrics assess both discrete decision accuracy and probabilistic confidence calibration without arbitrary threshold selection. The standalone tutorials write them through the package's public `evaluation_report` helper (`outputs/<stem>_evaluation_report.json`, verdict `sample-sanity` with the `majority_class_baseline` comparison, or `not-measurable` when no labelled rows exist).
 
 ###### Decision thresholds
 
@@ -96,7 +98,7 @@ The model is **not** certified, validated, or intended for autonomous decision-m
 - Self-contained open weights (`tabdpt1_2.safetensors`) with cryptographic SHA-256 verification.
 - Pinned upstream Hugging Face revision (`4462ffbd1d8dea25d4862d30beed4b70cd596ae5`).
 - Balanced context subsampling during support set construction to protect against severe class imbalance.
-- Strict input schema validation preventing silent column misalignment.
+- Strict input schema validation preventing silent column misalignment; the public `validate_inputs` helper applies the same checks and records the verdict and any rejection finding in an input manifest before any model execution.
 - Deterministic random seed controls for reproducible sampling and ensembling.
 
 ###### Risks and harms
