@@ -71,8 +71,7 @@ For DIMER, mount/cache the verified base weight through `DIMER_BASE_MODEL_PATH` 
 
 ## Model card
 
-[`MODEL_CARD.md`](MODEL_CARD.md) documents this pipeline against
-[`MODEL_CARD_SPEC.md`](MODEL_CARD_SPEC.md), the DIMER-wide contract for what a pipeline's model card must contain — intended uses and users, out-of-scope uses, factors, metrics and decision thresholds, and ethical considerations. The spec carries the pre-flight checklist to run before a release, and the section template for a new pipeline.
+[`MODEL_CARD.md`](MODEL_CARD.md) documents this pipeline against the DIMER Model Card Specification, at the version its front matter declares: intended uses and users, out-of-scope uses, factors, metrics and decision thresholds, and ethical considerations.
 
 ## Evaluation caveat
 
