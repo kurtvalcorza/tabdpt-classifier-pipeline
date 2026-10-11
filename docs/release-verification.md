@@ -4,7 +4,7 @@
 (`ARTIFACT-INFERENCE`) are **release candidates** until the exact notebook revisions have executed
 top-to-bottom in a clean supported runtime. Unit tests, JSON validation, code-cell compilation, and
 `tools/validate_release_assets.py` are necessary checks but are **not** runtime evidence under DIMER
-Notebook Specification 1.1. This file is the durable release-gate record for both notebooks.
+Notebook Specification 2.2. This file is the durable release-gate record for both notebooks.
 
 ## Automatic coverage (static, every pull request)
 
@@ -117,22 +117,38 @@ for the stated runtime, not general estimates.
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
 | 2026-09-11 | `45071534d021` (clean tree) — **previous repository-installing pair, spec 1.0** | Local host, Windows 11, Python 3.12.10, torch 2.7.1+cu128, tabdpt 1.2.0, numpy 2.3.0 (the `requirements-colab.txt` lock set of that revision), RTX 5070 Ti, `use_flash=False`; `scripts/execute_notebook_release.py --skip-bootstrap`, one fresh IPython kernel per notebook | E2E default sample path, then ARTIFACT-INFERENCE in a second kernel with the artifact and 8 fresh rows supplied externally | not recorded | **PASS** — E2E: sample accuracy 0.9912 / log_loss 0.0594 / roc_auc 0.9977 vs majority baseline 0.6316; artifact exported; no-refit reload with identical labels and equivalent probabilities. Companion: `preprocessing_restored_ = True`, 8 rows scored. **Not a Colab run, and not a run of the standalone carrier** — kept as evidence that the package paths the standalone notebooks carry executed on that revision |
-| 2026-09-14 | `9c6cc36` / `9ec14a6daa7b` | Kaggle T4 (`kurtvalcorza/dimer-nb2-tabdpt-classifier` v1) | Default sample path | 223.1 s | **PASSED** — 11/11 ok code cells executed cleanly, 4 files, 254 MB staged |
-| | | | Standalone ARTIFACT-INFERENCE with an external artifact | | pending — queued to the GPU lane |
+| 2026-09-14 | `9c6cc36` / `9ec14a6daa7b` — **earlier standalone blob (generator /2, in-kernel pip install), superseded** | Kaggle T4 (`kurtvalcorza/dimer-nb2-tabdpt-classifier` v1) | Default sample path | 223.1 s | **PASSED** — 11/11 ok code cells executed cleanly, 4 files, 254 MB staged. History only (REL14): the runtime image, Python/torch/tabdpt versions, device, `restarted` flag and printed metrics were not recorded, and the blob is not the current one |
+| | | | Standalone ARTIFACT-INFERENCE | | pending — no run of either current blob is recorded |
+
+### Local lock-only drives (not clean-runtime evidence)
+
+Builder pre-flight of the current blobs (generated at `1963393`; drives of the previous blobs `e779fee2` / `8985a6b5`, generated at `9cadc17` and differing only in that revision label, gave the same printed results): the notebooks' own code cells run in order in one
+plain CPython namespace standing in for the kernel, in WSL Ubuntu x86_64 with the GPU hidden
+(`CUDA_VISIBLE_DEVICES=-1`), so every stage ran on the CPU. The install cell built the isolated environment from
+`tutorials/requirements-colab.lock.txt` (55 packages, `--require-hashes`, managed CPython 3.12.12, torch 2.7.1,
+tabdpt 1.2.0) and, in the first drive, the `weights` stage downloaded the checkpoint from the Hub at the pinned revision and
+verified it (later drives pre-staged the same file; the stage still checks its SHA-256).
+Not a supported runtime, not hosted, and not promotion evidence.
+
+| Date (UTC) | Notebook blob | Path exercised | Cells | Wall | Printed results |
+|---|---|---|---|---|---|
+| 2026-10-11 | E2E `cd16465668f7` | Default sample path | 11/11 | 486.6 s (env build 318 s; checkpoint pre-staged and digest-verified — an earlier drive fetched it from the Hub) | TabDPT accuracy 0.9912 / log loss 0.0594 / ROC-AUC 0.9977, 1 holdout error of 114; majority 0.6316 (42 errors); logistic regression 0.9649 (4 errors); `matches_pinned_sample_artifact: True` (artifact `b70144fd…5fc2`); fresh-process reload PASS, max probability difference 0.0 |
+| 2026-10-11 | E2E `cd16465668f7` | Default sample path with `RUN_ACTIVITY = True` (Section 10) | 11/11 | 726.4 s (environment reused; activity 312 s on CPU) | canonical metrics as above; activity `n_ensembles` 2 → 8: accuracy 0.9912 → 0.9912 (1 error), log loss 0.0594 → 0.0514, ROC-AUC 0.9977 → 0.998; `canonical_outputs_unchanged: True` (7 files checked) |
+| 2026-10-11 | E2E `cd16465668f7` | BYOD by `BYOD_PATH`: the sample table with 5 blank targets | 4 ok, then refused in the Section 4 cell | — | Section 4 stops: "the target column 'target' has 5 missing or blank value(s) out of 569 rows (file lines 5, 12, 52, 202, 402) … Nothing was written to outputs/."; `outputs/` empty |
+| 2026-10-11 | ARTIFACT-INFERENCE `08b97ab90028` | Default path (pinned sample) | 9/9 | 45.6 s (`environment_reused: True` — the E2E drive's environment, same lock digest) | no upload dialog; `trusted_digest: verified`; 8 predictions identical to the E2E run's; report `not-measurable`, `sample_kind: sample` |
 
 ## Current status
 
-No clean-runtime execution of the standalone notebooks has been recorded yet; both runs are **pending**
-and queued to the GPU lane. Static validation (`tools/validate_release_assets.py`), nbformat validation, a
+No clean-runtime execution of the current standalone blobs has been recorded; a hosted one-pass Colab T4
+`Run all` of each is **pending** (the Kaggle row above is an earlier blob, the local drives are pre-flight only). Static validation (`tools/validate_release_assets.py`), nbformat validation, a
 `compile()` sweep over every code cell, and the offline unit suite passed on the tutorial source at
 the candidate revision, which is necessary but not sufficient. The registry status remains
 **Candidate** until a reviewer confirms a recorded run against the notebook blobs under review and
 an integrator promotes it; promotion is not performed by the builder. Facts a reviewer should weigh:
-`stage_missing_files` was exercised only with an injected downloader in the unit suite (the real
-`hf_hub_download` fetch of `tabdpt1_2.safetensors` into a fresh `weights/tabdpt-1.2/` has not been executed);
+the real `hf_hub_download` fetch of `tabdpt1_2.safetensors` into a fresh `weights/tabdpt-1.2/` ran in the
+local lock-only drive above, not yet on a hosted runtime;
 `from_pretrained` loads no model, so the first real load of the checkpoint through the snapshot path happens inside
-`fit`; the inline pins carry `huggingface-hub==0.36.2` whereas the 2026-09-11 run used 0.33.2; and the standalone
-carrier itself — executing the three carried module cells in a runtime that has no repository checkout — has been
-validated statically only (parity PASS, carrier probe with the package import blocked), never run. The clean runs
-will be the first execution of the standalone path, of the staging path, and of the helper stages
-(`validate_inputs`, `majority_class_baseline`, `evaluation_report`) against the real weights.
+`fit`; the lock carries `huggingface-hub==0.36.2` whereas the 2026-09-11 run used 0.33.2; and the current standalone
+carrier (isolated environment, stage subprocesses) has run end to end only in the local CPU drives above. The hosted
+runs will be its first execution on a supported runtime and on a CUDA device (the stages use CUDA automatically when
+the isolated environment sees one; `use_flash=False`).

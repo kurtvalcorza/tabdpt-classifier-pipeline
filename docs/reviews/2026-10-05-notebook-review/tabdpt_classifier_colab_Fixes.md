@@ -14,7 +14,7 @@
 | TDC-M3 | Fixed | The BYOD reader validates the label before any conversion: a missing **or blank** target is refused in Section 4 with the file, the target name, the count and the file lines; only then is the column converted with `astype(str)`. The `data` stage first removes this notebook's earlier exports, so nothing under `outputs/` survives a refusal. | `tools/tutorial_stages.py` (`read_byod`, `stage_data`) | `test_M3_blank_targets_are_refused_before_outputs` (NA, empty, whitespace); probe P3 `blank_targets_5`: *blank_targets.csv: the target column 'target' has 5 missing or blank value(s) out of 569 rows (file lines 5, 12, 52, 202, 402)…*, `outputs/` empty |
 | TDC-m1 | Fixed | `BYOD_PATH` (works on Colab, Kaggle, Jupyter) with the Colab upload as fallback; an empty path outside Colab and a cancelled/empty upload each stop with a clear message. `TARGET` is a form field; an absent target column is refused naming the column and listing the header. Parquet BYOD is accepted. | `tools/notebook_template.py` (Section 4 cell), `tools/tutorial_stages.py` | `test_m1_target_column_named_differently`, `test_m1_parquet_byod_is_accepted`, `test_m1_byod_path_field_and_upload_fallback`; probe P3 (path outside Colab, Parquet, `diagnosis` header with and without `TARGET`) |
 | TDC-m2 | Fixed | Section 6 adds a standardised logistic-regression reference (the package's encoder + mean imputation + scaling) and its accuracy range over 20 seeded splits; every model is reported with its holdout error count; the evaluation report carries both baselines, `holdout_errors` and an `interpretation` computed from the run ("one row is 0.0088 of accuracy … 0.9386–0.9912 over 20 seeded splits … within split-to-split variation; no dispersion was measured for the in-context model"). The "beats the baseline clearly" wording now also names the reference. | `tools/tutorial_stages.py` (`classical_reference`, `build_report`), template Sections 6–7 | `test_m2_report_has_classical_reference_error_counts_and_range` (0.9649, 4 errors, 0.9386–0.9912 — equal to the review's P2) |
-| TDC-m3 | Not fixed — needs maintainer decision | The contradictory release records (`docs/release-verification.md` "Current status", `README.md` release-status paragraph, `STATUS.md`, the registry's Run-all column) are status/evidence labels, which this fix cycle does not change. The procedure text in `docs/release-verification.md` and the registry's descriptive notes were updated to the /3 layout; the new procedure asks the hosted run to record runtime versions, metrics and `restarted`. | `docs/release-verification.md` (procedure only), `tutorials/README.md` (descriptive notes only) | — |
+| TDC-m3 | Fixed (fixer pass, 2026-10-11) — status unchanged (`Candidate`) | The four records now make one statement per notebook: no clean-runtime run of the current blobs is recorded; the hosted Colab T4 run is pending. The 2026-09-14 Kaggle row is marked as an earlier, superseded blob with what it did not record (image, versions, device, `restarted`, metrics); the registry's Run-all column says pending for both notebooks; README and STATUS name spec 2.2, the isolated environment and the pinned companion sample; a "Local lock-only drives (not clean-runtime evidence)" table carries the CPU drives' printed metrics. The hosted run adds the versions, metrics and `restarted` flag the review asks for. | `docs/release-verification.md`, `README.md`, `STATUS.md`, `tutorials/README.md` | `tools/validate_release_assets.py` release-status check PASS; `grep -n "has not been executed yet\|No clean-runtime execution" README.md docs/release-verification.md` returns nothing that contradicts the table |
 | TDC-S1 | Done (disclosure) | Section 8 now says the eight "new" rows are holdout rows already scored in Section 6. | template Section 8 | — |
 | TDC-S2 | Done | The `predict` stage writes `outputs/tabdpt_classifier_new_rows.csv` (unlabelled, with `row_id`), the input the companion accepts; it equals the companion's pinned sample rows. | `tools/tutorial_stages.py` | `test_new_rows_file_for_the_companion_matches_the_sample_rows`; probe P5 executor path |
 | TDC-S3 | Done | Declared spec updated to 2.2 (metadata, header, registry). | generator | validators |
@@ -46,3 +46,26 @@ All offline; none of it is clean-runtime or pretrained-model evidence.
 1. A hosted **Run all** of this blob in one pass on a fresh Colab T4 runtime, recorded in `docs/release-verification.md` with the runtime versions, TabDPT's printed metrics, the artifact digest, `matches_pinned_sample_artifact` and `restarted: false`; then one re-run of the install cell (`environment_reused: True`).
 2. The REL12 BYOD journey on a hosted runtime: one compatible CSV and one incompatible CSV (blank labels), by `BYOD_PATH` or the upload dialog.
 3. TDC-m3: reconcile the release records (maintainer).
+
+## Fixer verification (2026-10-11, before the hosted run)
+
+Every disposition above was re-checked against the code at `1963393` and by running the notebooks' own cells (not
+clean-runtime evidence):
+
+- **Lock-only CPU drive** (WSL Ubuntu x86_64, GPU hidden with `CUDA_VISIBLE_DEVICES=-1`): the install cell built the
+  55-package environment from the hash lock (`--require-hashes`, managed CPython 3.12.12, torch 2.7.1, tabdpt 1.2.0)
+  and every later cell ran in stage subprocesses: 11/11 code cells. The `weights` stage fetched the checkpoint from the
+  Hub at the pinned revision and verified its SHA-256 (first drive). Printed: TabDPT accuracy 0.9912 / log loss 0.0594 /
+  ROC-AUC 0.9977 with 1 holdout error of 114 (equal to the 2026-09-11 record), majority 0.6316 (42 errors), logistic
+  regression 0.9649 (4 errors), `matches_pinned_sample_artifact: True`, fresh-process reload PASS (max probability
+  difference 0.0).
+- **TDC-M1:** `grep "Restart the runtime"` returns nothing in either notebook; the companion's install cell, run afterwards in a
+  fresh process against the same lock digest, reports `environment_reused: True`.
+- **TDC-M2:** the activity was driven on the real model with `RUN_ACTIVITY = True` (see `docs/release-verification.md`).
+- **TDC-M3:** a CSV with 5 blank targets, supplied by `BYOD_PATH` through the notebook's own Section 4 cell, is refused
+  in Section 4 naming the target, the count and the file lines; nothing is written under `outputs/`.
+- **TDC-m3:** fixed in this pass (row above).
+- **Revision label:** the notebooks were regenerated at `1963393`, the commit whose tree holds the carried runner; the
+  earlier label `9cadc17` predated it. Only the label lines changed.
+- **No google stubs exist:** the kernel imports `google.colab` only inside the real upload branch, and stages are
+  separate processes, so the fleet's ModuleSpec stub fix does not apply.
