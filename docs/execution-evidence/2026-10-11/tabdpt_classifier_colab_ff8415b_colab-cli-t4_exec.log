@@ -1,0 +1,216 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/tabdpt-classifier-pipeline-ff8415b-16f802/tabdpt_classifier_colab_ff8415b_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/11 - Infrastructure: check the runtime, accelerator and disk; create (or keep) the run directory...
+{'accelerator': 'Tesla T4, 15360 MiB', 'kernel_python': '3.13.15', 'run_directory': '/content/dimer_runs/tabdpt_classifier/7e8c9ceb0722', 'outputs': '/content/outputs', 'weights': '/content/weights', 'environment_root': '/tmp/dimer_uv', 'free_gib': {'weights': 193.3, 'environment': 193.3}}
+[colab] Executing cell 2/11 - Infrastructure: write and verify the carried package, stage runner, lock, manifest and samples...
+{'carried_files': 10, 'verified': True, 'repository': 'kurtvalcorza/tabdpt-classifier-pipeline', 'revision': '196339361b51c785c3a4b24e830000f31184aa0d', 'generator': 'build_notebook.py/3.0-tabular'}
+[colab] Executing cell 3/11 - Infrastructure: build (or reuse) the isolated locked environment and define the stage runner...
+{'notebook_source': '196339361b51c785c3a4b24e830000f31184aa0d', 'python': '3.12.12', 'torch': '2.7.1', 'tabdpt': '1.2.0', 'numpy': '2.3.0', 'pandas': '2.3.2', 'scikit-learn': '1.7.0', 'cuda': True, 'locked_packages': 55, 'environment': '/tmp/dimer_uv/venv-ed8165814d559796', 'environment_reused': False, 'setup_seconds': 71}
+[colab] Executing cell 4/11 - Infrastructure: stage and digest-verify the pinned checkpoint...
+Running stage 'weights' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/weights.log
+{'model_id': 'Layer6/TabDPT', 'revision': '4462ffbd1d8dea25d4862d30beed4b70cd596ae5', 'license': 'apache-2.0', 'files': 1, 'total_bytes': 254098072}
+{'weights_dir': '/content/weights/tabdpt-1.2', 'fetched': ['tabdpt1_2.safetensors']}
+{'verified_files': 1, 'revision': '4462ffbd1d8dea25d4862d30beed4b70cd596ae5', 'sha256': ['06680220fd66c4524051706b98c1c659a674d19d3a766cd0bb276505e99faccd']}
+[colab] Executing cell 5/11 - tabdpt_classifier-14...
+Running stage 'data' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/data.log
+{'sample_kind': 'sample', 'name': 'sklearn-breast-cancer.csv', 'rows': 569, 'columns': 31, 'csv_sha256': '62dce411778129f3cd79e514e076cf8baac37c12249b61b6907134c9b1b8b5b6', 'target': 'target', 'declared_categorical_columns': 'sample schema'}
+{'class_counts': {'benign': 357, 'malignant': 212}}
+[colab] Executing cell 6/11 - tabdpt_classifier-17...
+Running stage 'validate' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/validate.log
+{'ceilings': {'MIN_CLASSES': 2, 'DECISION_RULE': 'argmax', 'TEST_SIZE': 0.2, 'SEED': 42}}
+{
+  "id": "sklearn-breast-cancer.csv",
+  "mode": "fit",
+  "rows": 569,
+  "feature_columns": [
+    "mean radius",
+    "mean texture",
+    "mean perimeter",
+    "mean area",
+    "mean smoothness",
+    "mean compactness",
+    "mean concavity",
+    "mean concave points",
+    "mean symmetry",
+    "mean fractal dimension",
+    "radius error",
+    "texture error",
+    "perimeter error",
+    "area error",
+    "smoothness error",
+    "compactness error",
+    "concavity error",
+    "concave points error",
+    "symmetry error",
+    "fractal dimension error",
+    "worst radius",
+    "worst texture",
+    "worst perimeter",
+    "worst area",
+    "worst smoothness",
+    "worst compactness",
+    "worst concavity",
+    "worst concave points",
+    "worst symmetry",
+    "worst fractal dimension"
+  ],
+  "numeric_columns": [
+    "mean radius",
+    "mean texture",
+    "mean perimeter",
+    "mean area",
+    "mean smoothness",
+    "mean compactness",
+    "mean concavity",
+    "mean concave points",
+    "mean symmetry",
+    "mean fractal dimension",
+    "radius error",
+    "texture error",
+    "perimeter error",
+    "area error",
+    "smoothness error",
+    "compactness error",
+    "concavity error",
+    "concave points error",
+    "symmetry error",
+    "fractal dimension error",
+    "worst radius",
+    "worst texture",
+    "worst perimeter",
+    "worst area",
+    "worst smoothness",
+    "worst compactness",
+    "worst concavity",
+    "worst concave points",
+    "worst symmetry",
+    "worst fractal dimension"
+  ],
+  "categorical_columns": [],
+  "missing_value_columns": {},
+  "classes": [
+    "benign",
+    "malignant"
+  ],
+  "class_counts": {
+    "benign": 357,
+    "malignant": 212
+  }
+}
+findings: [{'input': 'missing-target-probe', 'verdict': 'rejected', 'message': 'Classification target contains missing values'}]
+{'train': [455, 31], 'holdout': [114, 31], 'train_class_counts': {'benign': 285, 'malignant': 170}, 'holdout_class_counts': {'benign': 72, 'malignant': 42}}
+[colab] Executing cell 7/11 - tabdpt_classifier-20...
+Running stage 'condition' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/condition.log
+{'request': {'n_ensembles': 2, 'context_size': 512, 'batch_size': 512, 'seed': 42}}
+Requested context_size: 512 effective support rows <= 455
+{'classLabels': ['benign', 'malignant'], 'encodedFeatureCount': 30, 'modelFeatureCeiling': 128, 'featureReduction': 'pca', 'featureReductionActive': False, 'numericMissingColumns': [], 'upstreamImputer': 'SimpleImputer', 'source': 'local-snapshot'}
+Feature reduction is not active for this dataset.
+tutorial TabDPT {'accuracy': 0.9912, 'log_loss': 0.0594, 'roc_auc': 0.9977} {'holdout_errors': 1, 'holdout_rows': 114}
+majority-class baseline {'accuracy': 0.6316, 'log_loss': 0.6582, 'roc_auc': 0.5} {'holdout_errors': 42}
+standardised logistic regression (classical reference) {'accuracy': 0.9649, 'log_loss': 0.0773, 'roc_auc': 0.996} {'holdout_errors': 4}
+classical reference accuracy over 20 seeded splits: {'splits': 20, 'min': 0.9386, 'median': 0.9737, 'max': 0.9912}
+[colab] Executing cell 8/11 - tabdpt_classifier-23...
+Running stage 'report' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/report.log
+{
+  "task": "tabular classification by in-context conditioning on labelled support rows",
+  "decision_rule": "argmax",
+  "score_semantics": "uncalibrated class probabilities, one column per fitted class in sorted class order",
+  "sample_kind": "sample",
+  "n_holdout": 114,
+  "class_labels": [
+    "benign",
+    "malignant"
+  ],
+  "baselines": [
+    {
+      "id": "majority_class",
+      "metrics": [
+        {
+          "id": "accuracy",
+          "value": 0.6316
+        },
+        {
+          "id": "log_loss",
+          "value": 0.6582
+        },
+        {
+          "id": "roc_auc",
+          "value": 0.5
+        }
+      ],
+      "holdout_errors": 42
+    },
+    {
+      "id": "standardised_logistic_regression",
+      "metrics": [
+        {
+          "id": "accuracy",
+          "value": 0.9649
+        },
+        {
+          "id": "log_loss",
+          "value": 0.0773
+        },
+        {
+          "id": "roc_auc",
+          "value": 0.996
+        }
+      ],
+      "holdout_errors": 4,
+      "split_to_split_accuracy": {
+        "splits": 20,
+        "min": 0.9386,
+        "median": 0.9737,
+        "max": 0.9912
+      }
+    }
+  ],
+  "model_id": "Layer6/TabDPT",
+  "model_revision": "4462ffbd1d8dea25d4862d30beed4b70cd596ae5",
+  "metrics": [
+    {
+      "id": "accuracy",
+      "value": 0.9912,
+      "higher_is_better": true,
+      "estimation": "single seeded stratified 80/20 holdout; no dispersion estimate for the model"
+    },
+    {
+      "id": "log_loss",
+      "value": 0.0594,
+      "higher_is_better": false,
+      "estimation": "single seeded stratified 80/20 holdout; no dispersion estimate for the model"
+    },
+    {
+      "id": "roc_auc",
+      "value": 0.9977,
+      "higher_is_better": true,
+      "estimation": "single seeded stratified 80/20 holdout; no dispersion estimate for the model"
+    }
+  ],
+  "verdict": "sample-sanity",
+  "reason": "114 labelled holdout row(s) from one seeded split; tutorial evidence, not a benchmark",
+  "needs": "an independent, domain-representative labelled test set for any generalisable quality claim, and calibration data before the uncalibrated probabilities are thresholded",
+  "holdout_errors": 1,
+  "interpretation": "One holdout row is 0.0088 of accuracy (114 rows). The classical reference's accuracy ranged 0.9386\u20130.9912 over 20 seeded splits of the same table, so a difference of one or two holdout rows between models is within split-to-split variation; no dispersion was measured for the in-context model itself."
+}
+[colab] Executing cell 9/11 - tabdpt_classifier-26...
+Running stage 'predict' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/predict.log
+ row_id prediction  proba_benign  proba_malignant
+    120     benign        0.9998           0.0002
+    250  malignant        0.0001           0.9999
+    375     benign        0.9950           0.0050
+     99  malignant        0.1658           0.8342
+    455     benign        0.8048           0.1952
+    318     benign        0.9988           0.0012
+     39  malignant        0.2296           0.7704
+    371     benign        0.9999           0.0001
+['tabdpt_classifier_evaluation_report.json', 'tabdpt_classifier_input_manifest.json', 'tabdpt_classifier_new_rows.csv', 'tabdpt_classifier_predictions.csv', 'tabdpt_classifier_result.json']
+[colab] Executing cell 10/11 - tabdpt_classifier-29...
+Running stage 'export' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/export.log
+{'artifact': '/content/outputs/artifact/artifact.json', 'artifact_files': ['artifact.json', 'training_context.parquet'], 'artifact_sha256': 'b70144fd9a77ba69b0bafa655eb9874d2a8ece65315f7aadb93e0f8d4dfb5fc2', 'training_context_sha256': '9964a1377bd01c211455e78a0e8eb1629750c4f8c55ffb744c854e3a6b256b90', 'matches_pinned_sample_artifact': True, 'pinned_sample_artifact_sha256': 'b70144fd9a77ba69b0bafa655eb9874d2a8ece65315f7aadb93e0f8d4dfb5fc2'}
+Trusted digest for the companion notebook: set EXPECTED_ARTIFACT_SHA256 = 'b70144fd9a77ba69b0bafa655eb9874d2a8ece65315f7aadb93e0f8d4dfb5fc2' when you hand it outputs/artifact/.
+Running stage 'reload' in the isolated environment; log: /content/dimer_runs/tabdpt_classifier/7e8c9ceb0722/logs/reload.log
+{'reload_dir': '/content/outputs/artifact-reload', 'process': 'fresh (separate from the exporting stage)', 'preprocessing_restored_': True, 'labels_identical': True, 'max_abs_probability_difference': 0.0}
+PASS: fitted preprocessing restored without refit; labels identical and probabilities equivalent (rtol=1e-05, atol=1e-06).
+[colab] Executing cell 11/11 - tabdpt_classifier-32...
+Optional activity skipped: tick RUN_ACTIVITY to run it. The canonical outputs are complete.
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/tabdpt-classifier-pipeline-ff8415b-16f802/tabdpt_classifier_colab_ff8415b_colab-cli-t4_output.ipynb'...
