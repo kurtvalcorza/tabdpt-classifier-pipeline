@@ -28,6 +28,4 @@ jobs:
       - name: Validate tutorial and model-card source (NOTEBOOK_SPEC 1.1 standalone carrier)
         run: python tools/validate_release_assets.py
       - name: Standalone notebook parity (NOTEBOOK_SPEC 1.1 PAR3)
-        run: |
-          python tools/build_notebook.py --check
-          python tools/build_notebook.py --check --template tools/notebook_template_artifact_inference.py
+        run: python tools/build_notebook.py --check

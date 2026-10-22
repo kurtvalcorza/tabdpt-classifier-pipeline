@@ -59,7 +59,7 @@ Production enablement requires completing this 9-step gate. Steps 1–6 are repo
 2. **Adversarial dataset rejection:** Confirm validator rejects duplicate splits, nested/zip-bomb archives, path traversal, symlinked roots, and malformed configurations with explicit errors.
 3. **Reproducible sample verification:** Confirm `examples/build_sample_datasets.py` deterministically regenerates `examples/sample-data/breast-cancer-wisconsin.zip` matching documented checksums.
 4. **Tutorial AST & path validation:** Confirm `scripts/validate_colab_tutorial.py` passes on all notebooks under `tutorials/`, verifying AST syntax, path safety, and explicit `use_flash=False`.
-5. **Fresh-process reload test:** Run `scripts/execute_notebook_release.py` (real IPython kernels): the `E2E` notebook must export `artifact.json` + `training_context.parquet` and pass its no-refit reload assertions, and `tutorials/tabdpt_classifier_artifact_inference_colab.ipynb` must consume that artifact in a second fresh kernel with `preprocessing_restored_ = True`.
+5. **Fresh-process reload and external-artifact test:** Run the `E2E` notebook on a fresh hosted runtime and record it in `docs/release-verification.md`: it must export `artifact.json` + `training_context.parquet` (and their deterministic ZIP) and pass its no-refit reload assertions, and its closing external-artifact section (Section 10) must verify the pinned sample artifact's SHA-256 before extraction and serve it with `preprocessing_restored_ = True`. (`scripts/execute_notebook_release.py` is retired: it drove the previous notebook pair.)
 6. **Provenance integrity:** Confirm `result.json` records validation metrics, base model revision, context SHA-256, and runtime configurations.
 
 ### Platform-owned steps

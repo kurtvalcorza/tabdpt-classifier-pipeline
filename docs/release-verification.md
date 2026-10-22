@@ -1,26 +1,42 @@
 # Release verification
 
-`tutorials/tabdpt_classifier_colab.ipynb` (`E2E`) and `tutorials/tabdpt_classifier_artifact_inference_colab.ipynb`
-(`ARTIFACT-INFERENCE`) are **release candidates** until the exact notebook revisions have executed
-top-to-bottom in a clean supported runtime. Unit tests, JSON validation, code-cell compilation, and
-`tools/validate_release_assets.py` are necessary checks but are **not** runtime evidence under DIMER
-Notebook Specification 2.2. This file is the durable release-gate record for both notebooks.
+`tutorials/tabdpt_classifier_colab.ipynb` (`E2E`, kind `TUTORIAL`) is a **release candidate** until the exact
+notebook revision has executed top-to-bottom in a clean supported runtime. Unit tests, JSON validation, code-cell
+compilation, and `tools/validate_release_assets.py` are necessary checks but are **not** runtime evidence under DIMER
+Notebook Specification 3.0. This file is the durable release-gate record for the notebook.
+
+Under NOTEBOOK_SPEC 3.0 (KND11) the former `ARTIFACT-INFERENCE` companion,
+`tutorials/tabdpt_classifier_artifact_inference_colab.ipynb`, was folded into the E2E notebook's closing
+external-artifact section (Section 10, §19.1) and deleted, together with its template, its stage runner, its parity
+test and the script-built `examples/sample-artifact/` bundle (`tools/build_sample_artifact.py` ran no export stage, so
+the bundle could not meet SART9). The companion's rows in the tables below are kept as history (REL14).
+
+**Pinned sample artifact of Section 10 (SART6–SART9).** `SAMPLE_ARTIFACT_URL` is the release asset
+`tabdpt_classifier_artifact.zip` of the tag `sample-artifact-breast-cancer-v1` (target `762eb5b`), pinned by
+`SAMPLE_ARTIFACT_SHA256` in `tools/tutorial_stages.py`; 76,015 bytes. It packages `outputs/artifact/` of a recorded
+hosted Colab T4 run of the default path of `tutorials/tabdpt_classifier_colab.ipynb` at `762eb5b` (fresh reload PASS),
+deterministically: the two members `artifact.json` and `training_context.parquet` at the ZIP root in sorted order,
+each with the timestamp 1980-01-01 00:00:00, `ZIP_DEFLATED` and mode 0644 — the layout the migrated export stage
+writes to `outputs/tabdpt_classifier_artifact.zip`, so a later re-pin from a run of this notebook needs no code
+change. The member digests equal that run's printed `artifact_sha256` and `training_context_sha256`. The release
+notes name the producing run. The asset is never replaced; a changed artifact gets a new tag and a new pin (SART7,
+SART11).
 
 ## Automatic coverage (static, every pull request)
 
-CI runs `tools/validate_release_assets.py`, which checks, for each of the two notebooks:
+CI runs `tools/validate_release_assets.py`, which checks:
 
 - notebook JSON parses; every code cell compiles as plain Python (no `%`/`!` magics); no persisted outputs or
   execution counts; no unresolved placeholder markers; every code cell is preceded by an explanatory markdown cell;
-- exactly the two tutorial notebooks, each named in `tutorials/README.md` with its profile, the notebook-spec version
-  and the standalone carrier; `metadata.dimer` declares that profile, spec `2.2`, mode `GUIDED`, `standalone: true` and
+- exactly the one tutorial notebook, named in `tutorials/README.md` with its profile, the notebook-spec version
+  and the standalone carrier; `metadata.dimer` declares that profile, spec `3.0`, kind `TUTORIAL`, mode `GUIDED`, `standalone: true` and
   `generated_from` (repository, generating commit, package module paths and SHA-256, carried-file digests,
   generator `build_notebook.py/3.0-tabular`);
 - the standalone carrier and the isolated environment (ST1–ST6, PAR1–PAR3, RUN1, RUN10, ENV6): one carrier cell whose
   `CARRIED_FILES` / `CARRIED_BINARY` equal the repository's package (`src/tabdpt_classifier_pipeline/`), the notebook's
-  stage runner (`tools/tutorial_stages.py` or `tools/tutorial_stages_artifact_inference.py`), the hash lock
+  stage runner (`tools/tutorial_stages.py`), the hash lock
   `tutorials/requirements-colab.lock.txt` (which must pin every `pyproject.toml` runtime pin, every entry hashed), the
-  committed snapshot manifest, the licence and, for the companion, `examples/sample-artifact/`; `CARRIED_HASHES` match;
+  committed snapshot manifest and the licence; `CARRIED_HASHES` match;
   the notebook is byte-identical to `tools/build_notebook.py` output for its template; no cell pip-installs into the
   notebook kernel and no text asks for a runtime restart; the install cell uses a pinned `uv` wheel, a managed CPython,
   `--require-hashes`, a lock-digest-keyed environment that is reused, `MPLBACKEND=Agg`, and drops
@@ -30,26 +46,29 @@ CI runs `tools/validate_release_assets.py`, which checks, for each of the two no
   use_flash=False, seed=SEED)`, `validate_inputs`, `majority_class_baseline`, the logistic-regression reference with its
   split-to-split range and the holdout error counts, `fit`, `evaluate`, `evaluation_report`, `predict_proba`, `predict`,
   `export_artifact_bundle`, `load_verified_artifact` in a fresh process with the no-refit and equivalence checks, the
-  BYOD refusals for an absent or blank target; companion: the trusted-digest check before `validate_artifact_bundle`,
+  BYOD refusals for an absent or blank target, the deterministic export ZIP; the external-artifact section: the pinned
+  URL and SHA-256, the digest check before extraction, the member-by-member extraction of exactly the two members,
+  `validate_artifact_bundle`, the SART10 data-contract check,
   `load_verified_artifact(..., model_weight_path=<verified checkpoint>, compile_model=False, use_flash=False)`, the
-  fail-closed legacy-path and class-label checks, `validate_inputs(..., target_column=None, feature_columns=...)`,
-  `predict_proba`, `predict`, a `not-measurable` `evaluation_report` — the exports per notebook, the learner-facing
+  fail-closed legacy-path and class-label checks, `validate_inputs(..., feature_columns=...)` with a refused probe,
+  and the outputs under `outputs/external_artifact/` — the exports, the learner-facing
   classification statements and the guided layer (how-to-use, task contract, roadmap, glossary, predictions,
   checkpoints, troubleshooting, conclusion), and the optional-input gates at their non-interactive defaults; no
   `assert` in the stage runners (verdicts are reported, contract checks raise with a message); forbidden patterns
-  (credential-in-URL, any `git clone` / `github.com/kurtvalcorza` on the primary path, a mutable `revision='main'`,
+  (credential-in-URL, any `git clone`, any `github.com/kurtvalcorza` reference except the exact pinned sample-artifact
+  URL in the stage runner (whole-token match; `..`, `%2e`, `?` and `#` refused), a mutable `revision='main'`,
   direct `tabdpt` / `huggingface_hub` / `sklearn` / `torch` use in the notebook's own cells, `trust_remote_code=True`,
-  `pickle.load`, `torch.load(`, `extractall(`; in the companion also `load_breast_cancer(`, `export_artifact_bundle(`,
-  `.fit(` in its stage runner);
+  `pickle.load`, `torch.load(`, `extractall(`);
 - `STATUS.md`, `README.md` and `tutorials/README.md` agree on one release-status token and no document makes an
   unsupported release-grade, production-readiness or benchmark claim;
 - `MODEL_CARD.md` front matter, single H1, required heading order, and immutable provenance.
 
-CI also runs `tools/build_notebook.py --check` for both templates, `scripts/validate_repo.py`,
+CI also runs `tools/build_notebook.py --check`, `scripts/validate_repo.py`,
 `scripts/validate_colab_tutorial.py` and the offline unit suite (`tests/`, including `test_notebook_parity.py`,
-`test_companion_parity.py` and `test_notebook_review_fixes.py`, which execs the notebooks' own kernel cells with
-stand-ins and runs the model-free stages; injected downloader, no weights, no model). `tools/build_sample_artifact.py
---check` reproduces the pinned sample artifact byte for byte. These are source/provenance and unit checks. They are
+`test_notebook_review_fixes.py`, which execs the notebook's own kernel cells with stand-ins and runs the model-free
+stages, and `test_external_artifact_section.py`: the pin, the digest refusal before extraction, the ZIP layout, the
+SART10 contract, the section's dependency on the setup cells only, the output path and the ST1 exact-URL rule; injected
+downloader, no weights, no model). These are source/provenance and unit checks. They are
 **not** execution evidence.
 
 ## Executor paths
@@ -57,7 +76,7 @@ stand-ins and runs the model-free stages; injected downloader, no weights, no mo
 | Path | Runtime | Role |
 |---|---|---|
 | Google Colab (supported user path) | Colab T4 GPU runtime (CPU also works); the kernel's Python does not matter — the stages run in an isolated CPython 3.12.12 environment | The runtime the tutorials are written for; a clean one-pass top-to-bottom run here is promotion evidence |
-| Kaggle kernel | Kaggle T4 kernel | Reproducible clean-room executor of the same class; the notebook is pushed verbatim (no repository checkout is needed — the notebooks are standalone, and the companion's default path needs no supplied files) |
+| Kaggle kernel | Kaggle T4 kernel | Reproducible clean-room executor of the same class; the notebook is pushed verbatim (no repository checkout is needed — the notebook is standalone, and its external-artifact section downloads the pinned asset itself) |
 | Local harness (pre-flight only) | Workstation | Builder pre-flight to catch defects before spending cloud runs; **not** a supported runtime and not promotion evidence. `scripts/execute_notebook_release.py` was written for the previous repository-installing pair and does not apply to the /3 notebooks |
 
 ## Supported release verification procedure
@@ -85,18 +104,19 @@ Before changing the registry status from `Candidate` to `Release-grade`:
      interpretation;
    - `predict`: `outputs/tabdpt_classifier_predictions.csv`, `outputs/tabdpt_classifier_new_rows.csv` and
      `outputs/tabdpt_classifier_result.json` with the runtime identity and device;
-   - `export` / `reload`: `outputs/artifact/{artifact.json,training_context.parquet}`, the printed artifact digest and
-     `matches_pinned_sample_artifact` (record it; `True` confirms the companion's pinned sample), then the fresh-process
-     reload with `preprocessing_restored_ is True`, identical labels and probabilities within `rtol=1e-5, atol=1e-6`;
-6. in a **second** fresh runtime, run the exact companion notebook revision with every field at its default (no upload):
-   verify the trusted digest of the pinned sample is `verified`, `validate_artifact_bundle` passes before
-   reconstruction, `preprocessing_restored_ is True` and class labels match, the input manifest has one recorded
-   rejection finding, and the predictions, the `not-measurable` evaluation report (`sample_kind: sample`) and the result
-   JSON are written; then the REL12 journey: one compatible user input (the E2E run's `outputs/artifact/` with its
-   printed digest in `EXPECTED_ARTIFACT_SHA256` and its `outputs/tabdpt_classifier_new_rows.csv` with
-   `ID_COLUMNS = ['row_id']`) and one incompatible input (a digest with one changed character, or rows with a missing
-   column), plus, in the E2E notebook, one compatible and one incompatible BYOD CSV (blank labels) through
-   `BYOD_PATH` or the upload dialog;
+   - `export` / `reload`: `outputs/artifact/{artifact.json,training_context.parquet}`, the printed artifact digest,
+     `outputs/tabdpt_classifier_artifact.zip` with its `zip_sha256` (record it; Section 10 never uses it, and it need not equal the
+     pinned `SAMPLE_ARTIFACT_SHA256`), then the fresh-process reload with
+     `preprocessing_restored_ is True`, identical labels and probabilities within `rtol=1e-5, atol=1e-6`;
+   - `external_artifact` / `external_reconstruct` / `external_predict` (Section 10): the provenance line before the
+     download, `trusted_digest: verified (pinned SAMPLE_ARTIFACT_SHA256)`, the data contract (30 features, `target`,
+     `benign` / `malignant`, 455 support rows), `preprocessing_restored_: True`, eight scored rows and
+     `outputs/external_artifact/tabdpt_classifier_external_{predictions.csv,result.json}`;
+6. the REL12 journey in Section 10: one compatible user input (`ARTIFACT_SOURCE = 'My own artifact ZIP'` with this
+   run's `outputs/tabdpt_classifier_artifact.zip` and its printed digest in `EXPECTED_ZIP_SHA256`, and
+   `outputs/tabdpt_classifier_new_rows.csv` as `EXTERNAL_ROWS_PATH`) and one incompatible input (a digest with one
+   changed character, or rows with a missing column), plus one compatible and one incompatible BYOD CSV (blank labels)
+   through `BYOD_PATH` or the upload dialog;
 7. verify the exports exist and the interpretation sections match the observed paths;
 8. record the notebook Git blob ids, commit, runtime (platform, Python, PyTorch, tabdpt, device), `restarted`,
    model identifier and immutable revision, whether the model cache was clean, outcome, the printed metrics, the
@@ -120,6 +140,26 @@ for the stated runtime, not general estimates.
 | 2026-09-14 | `9c6cc36` / `9ec14a6daa7b` — **earlier standalone blob (generator /2, in-kernel pip install), superseded** | Kaggle T4 (`kurtvalcorza/dimer-nb2-tabdpt-classifier` v1) | Default sample path | 223.1 s | **PASSED** — 11/11 ok code cells executed cleanly, 4 files, 254 MB staged. History only (REL14): the runtime image, Python/torch/tabdpt versions, device, `restarted` flag and printed metrics were not recorded, and the blob is not the current one |
 | 2026-10-11 | `ff8415b` / `cd16465668f7` of `tabdpt_classifier_colab.ipynb`, downloaded from GitHub at the PR head and blob-verified before the session; executed file `docs/execution-evidence/2026-10-11/tabdpt_classifier_colab_ff8415b_colab-cli-t4.ipynb`, sha256 `7e57b674bcecd595b364420a43dc038ef504d6b5e7d9041f060eafa8bdd818b8` (`…_run_summary.json` `7edcd8f3e524…`, `…_exec.log` `737350af7644…`) | Colab CLI 0.7.4 sequential execution, fresh Colab Tesla T4 (15,360 MiB, reported by cell 1), via the workspace `colab-cli-serial-test-suite`; isolated uv CPython 3.12.12 environment from the carried hash lock (55 packages; torch 2.7.1, tabdpt 1.2.0, numpy 2.3.0, pandas 2.3.2, scikit-learn 1.7.0). Not a browser Run all; the CLI records no execution counts, so order is evidenced by its `Executing cell k/N` log (1/11–11/11) | E2E default path: Breast Cancer sample, 455 support / 114 holdout rows, in-context conditioning only (no fine-tuning), device cuda; weight `tabdpt1_2.safetensors` downloaded from the Hub at revision `4462ffbd1d8d` (254,098,072 bytes, no stall) and digest-verified (`06680220…`) | 137.4 s session wall | **PASSED — one pass, no restart, 0 errors, 11/11 code cells.** Missing-target probe rejected; TabDPT holdout accuracy 0.9912, log loss 0.0594, ROC AUC 0.9977 (1 error in 114) — identical to the CPU reference; majority class 0.6316 (42 errors); standardised logistic regression 0.9649 / 0.0773 / 0.996 (4 errors); logistic accuracy over 20 seeded splits 0.9386–0.9912 (median 0.9737). `matches_pinned_sample_artifact: True` — the exported artifact's SHA-256 `b70144fd9a77ba69…` equals the pinned sample's. Fresh-process reload PASSED: preprocessing restored without refit, labels identical, max abs probability difference 0.0. Optional activity not run. Carried provenance names `1963393` (generation-time HEAD, not `ff8415b`). Status stays **Candidate** |
 | 2026-10-11 | `ff8415b` / `08b97ab90028` of `tabdpt_classifier_artifact_inference_colab.ipynb`, downloaded from GitHub at the PR head and blob-verified before the session; executed file `docs/execution-evidence/2026-10-11/tabdpt_classifier_artifact_inference_colab_ff8415b_colab-cli-t4.ipynb`, sha256 `ec2c538c27aebc978c35214016241cfd01758ef57ac020c0d5be128543bc5be8` (`…_run_summary.json` `0176eb2694fe…`, `…_exec.log` `ad16caae6ec0…`) | Colab CLI 0.7.4 sequential execution, fresh Colab Tesla T4, via the workspace `colab-cli-serial-test-suite`; same 55-package isolated uv environment. Not a browser Run all; order from the CLI log (1/9–9/9) | Companion default path: the carried sample artifact (no release, no upload), base weight downloaded from the Hub and digest-verified | 134.4 s session wall | **PASSED — one pass, no restart, 0 errors, 9/9 code cells.** No upload in any output; trusted digest verified (`b70144fd9a77ba69…`, format `tabdpt-dimer-context-v3`); preprocessing restored without refit; missing-column probe rejected (`Feature schema mismatch; missing=['mean radius']`); the 8 predictions are identical to the E2E run's at 4 decimals (labels and both probabilities; 5 benign, 3 malignant). Optional activity not run. Carried provenance `1963393`. Status stays **Candidate** |
+| 2026-10-22 | `762eb5b` / `cd16465668f7` of `tabdpt_classifier_colab.ipynb` (main; input unchanged) — **the run that produced the pinned sample artifact of Section 10** | Colab CLI 0.7.4 `colab exec -f` on a fresh Colab Tesla T4 (15,360 MiB), session `suite-tabdpt-762eb5b-16f8`, via the workspace `colab-cli-serial-test-suite` (not a browser Run all) | Default sample path, 11/11 code cells, no errors | 121.7 s | **PASS** — TabDPT accuracy 0.9912 / log loss 0.0594 / ROC-AUC 0.9977 (1 holdout error of 114) vs majority 0.6316 and logistic regression 0.9649; export `artifact_sha256` `b70144fd9a77…`, `training_context_sha256` `9964a1377bd0…`; fresh reload PASS (preprocessing restored without refit, labels identical). `outputs/artifact/` was then packed on the VM by `…_pack.py` (sorted members at the ZIP root, 1980-01-01, `ZIP_DEFLATED`, mode 0644) into `tabdpt_classifier_artifact.zip` (76,015 bytes, SHA-256 `42aab6ce342b…`), published as release `sample-artifact-breast-cancer-v1`. Files in `docs/execution-evidence/2026-10-22-762eb5b/` (local paths redacted to `<local-run-dir>/` before the first commit; captured → committed SHA-256): executed notebook `b36d7f1f22e8…` → unchanged; `…_run_summary.json` `8b3e313a06a3…` → unchanged; `…_pack.py` `88cc4b6dbcce…` → unchanged; `…_exec.log` `4c2dbb3dc1bf…` → `d749e421db16…`; `…_suite.log` `b5b3386f9f87…` → `697e3027bf4f…` (2 and 4 path lines redacted) |
+
+**First hosted run of the migrated notebook (2026-10-22, `b0a0173` / blob `e6ef7050`, Notebook Spec 3.0; the second pass of
+§32.2).** Colab CLI 0.7.4 `colab exec -f` on a fresh Colab Tesla T4, default path of `tutorials/tabdpt_classifier_colab.ipynb` on
+PR #29, started 2026-10-22T03:18:06Z, wall 134.5 s, exit 0, input unchanged; executed cell sources equal blob `e6ef7050`
+(44 cells); verdict PASS. Evidence: `docs/execution-evidence/2026-10-22-b0a0173/`. The fresh reload restored the fitted
+preprocessing without refit (labels identical). **Section 10 ran end to end on the default path:** it downloaded the release
+asset of tag `sample-artifact-breast-cancer-v1`, verified SHA-256
+`42aab6ce342b6bdf9870e1fe332a1371cdcb2e6d19ad6b6b484a39a1fc73bb19` before extraction, rebuilt the classifier from the files
+alone and wrote `outputs/external_artifact/tabdpt_classifier_external_predictions.csv` and `..._external_result.json` (printed
+in the executed notebook; the files stayed on the released VM). The run's own deterministic export,
+`outputs/tabdpt_classifier_artifact.zip`, printed the same digest `42aab6ce…` as the pinned asset: the exporter reproduces the
+published artifact byte for byte. Local paths were replaced by `<local-run-dir>/` before the first commit:
+
+| File (under `execution-evidence/2026-10-22-b0a0173/`) | Captured | Committed |
+|---|---|---|
+| `tabdpt_classifier_colab_b0a0173_colab-cli-t4.ipynb` | `706be24e8f28b36a2250a524dd231b3ec627e1c9b68446a75764f7451124f411` | unchanged (no local path) |
+| `tabdpt_classifier_colab_b0a0173_colab-cli-t4_run_summary.json` | `64d4c539d8335eda3b31bd09099b684707ece263e7797b05f8bea91c292174b8` | unchanged (no local path) |
+| `tabdpt_classifier_colab_b0a0173_colab-cli-t4_exec.log` | `bf9248254ada3bb056758a57da1058a378a89c7f7365cf68a59809e1cf4ae220` | `4316671494d0bd19bc93f5af0cb9df1713f46e3772c90b1a432575d6028e2e66` |
+| `tabdpt_classifier_colab_b0a0173_colab-cli-t4_suite.log` | `8b8629438e9474cdc4a94388c4e81e9c7c2d8bf771f439449cc535cbb1ef420e` | `e00f9e00e7142961a0e49acf13e307ff3267e6502460447afa5b672d29e6bfca` |
 
 ### Local lock-only drives (not clean-runtime evidence)
 
@@ -139,6 +179,10 @@ Not a supported runtime, not hosted, and not promotion evidence.
 | 2026-10-11 | ARTIFACT-INFERENCE `08b97ab90028` | Default path (pinned sample) | 9/9 | 45.6 s (`environment_reused: True` — the E2E drive's environment, same lock digest) | no upload dialog; `trusted_digest: verified`; 8 predictions identical to the E2E run's; report `not-measurable`, `sample_kind: sample` |
 
 ## Current status
+
+**2026-10-22 — NOTEBOOK_SPEC 3.0 migration (Candidate).** The companion is folded into the E2E notebook's Section 10
+and the notebook declares spec 3.0. No hosted run of the migrated blob is recorded yet; until it is, the notebook stays
+Candidate. The 2026-10-11 runs below were of the 2.2-era pair and do not transfer to the migrated blob.
 
 **2026-10-11 — one-pass hosted runs of both current blobs are recorded** (the 2026-10-11 rows of the clean-runtime table): `tabdpt_classifier_colab.ipynb` (`cd16465668f7`) and `tabdpt_classifier_artifact_inference_colab.ipynb` (`08b97ab90028`) at `ff8415b`, each by Colab CLI 0.7.4 sequential execution on a fresh Colab Tesla T4 (not a browser Run all), no restart, 0 error outputs. Notes for the reviewer: (a) the T4 metrics are identical to the CPU reference (accuracy 0.9912, log loss 0.0594, ROC AUC 0.9977, 1/114 errors), and the exported artifact's SHA-256 equals the pinned sample's (`b70144fd…`); (b) the Hub checkpoint download completed on Colab (254,098,072 bytes, SHA-256 `06680220…` verified) — the stall seen in a local WSL drive is a local-only issue; (c) the companion's 8 predictions are identical to the E2E run's at 4 decimals (labels and both probabilities); (d) both carried revision labels read `1963393` (generation-time HEAD, not `ff8415b`) — follow-up; (e) the optional activity was not run; (f) the maintainer accepted the carried sample (no release; Apache-2.0; no weights; public breast-cancer rows plus imputer/scaler statistics; byte-identical to a real CPU export). Both notebooks stay **Candidate**; remaining gates: reviewer confirmation of these runs, the BYOD journeys and the optional activities.
 
