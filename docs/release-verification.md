@@ -15,12 +15,21 @@ the bundle could not meet SART9). The companion's rows in the tables below are k
 `tabdpt_classifier_artifact.zip` of the tag `sample-artifact-breast-cancer-v1` (target `762eb5b`), pinned by
 `SAMPLE_ARTIFACT_SHA256` in `tools/tutorial_stages.py`; 76,015 bytes. It packages `outputs/artifact/` of a recorded
 hosted Colab T4 run of the default path of `tutorials/tabdpt_classifier_colab.ipynb` at `762eb5b` (fresh reload PASS),
-deterministically: the two members `artifact.json` and `training_context.parquet` at the ZIP root in sorted order,
+packed **after the run** on the same VM by `…_pack.py` (`colab exec -f`), deterministically: the two members `artifact.json` and `training_context.parquet` at the ZIP root in sorted order,
 each with the timestamp 1980-01-01 00:00:00, `ZIP_DEFLATED` and mode 0644 — the layout the migrated export stage
 writes to `outputs/tabdpt_classifier_artifact.zip`, so a later re-pin from a run of this notebook needs no code
 change. The member digests equal that run's printed `artifact_sha256` and `training_context_sha256`. The release
 notes name the producing run. The asset is never replaced; a changed artifact gets a new tag and a new pin (SART7,
 SART11).
+
+**v1 does not meet SART9 and is superseded once v2 is pinned (owner ruling, 2026-10-22).** The v1 ZIP was assembled after
+the run by a script, not written by the notebook's own default path, so it is not the export of that path that SART9
+requires, even though its member digests equal the run's printed digests. From `spec3/sart9-inrun-zip` on, the export
+stage's own output `outputs/tabdpt_classifier_artifact.zip` is the run's exported artifact: it is written in-run
+(sorted members, 1980-01-01 00:00:00, mode 0644, `create_system` 3, atomic write) and its SHA-256 is recorded in
+`outputs/tabdpt_classifier_result.json` under `artifact.zip_sha256`. The replacement, `sample-artifact-breast-cancer-v2`,
+is that file uploaded unchanged from a recorded hosted run, published as an immutable release and re-pinned in a
+separate commit. Until then the notebook keeps the v1 pin; the v1 tag stays in place and is not overwritten (SART7).
 
 ## Automatic coverage (static, every pull request)
 
@@ -161,6 +170,15 @@ published artifact byte for byte. Local paths were replaced by `<local-run-dir>/
 | `tabdpt_classifier_colab_b0a0173_colab-cli-t4_exec.log` | `bf9248254ada3bb056758a57da1058a378a89c7f7365cf68a59809e1cf4ae220` | `4316671494d0bd19bc93f5af0cb9df1713f46e3772c90b1a432575d6028e2e66` |
 | `tabdpt_classifier_colab_b0a0173_colab-cli-t4_suite.log` | `8b8629438e9474cdc4a94388c4e81e9c7c2d8bf771f439449cc535cbb1ef420e` | `e00f9e00e7142961a0e49acf13e307ff3267e6502460447afa5b672d29e6bfca` |
 
+**In-run export identity run (2026-10-22, `6d47d75` / blob `69a07f6b`, PR #31; SART9).** Colab CLI 0.7.5 `colab exec -f` on a fresh Colab Tesla T4, default path of `tutorials/tabdpt_classifier_colab.ipynb` at the head of `spec3/sart9-inrun-zip`, started 2026-10-22T12:53:22Z, wall 172.2 s, exit 0, input unchanged, 14/14 code cells, no error; verdict PASS. Evidence: `docs/execution-evidence/2026-10-22-6d47d75/`. The export stage wrote `outputs/tabdpt_classifier_artifact.zip` in-run and recorded `artifact.zip_sha256` `42aab6ce342b6bdf9870e1fe332a1371cdcb2e6d19ad6b6b484a39a1fc73bb19` in the run's result file. That digest equals the release asset of `sample-artifact-breast-cancer-v1` byte for byte, as the export of the `b0a0173` run did. Section 10 downloaded the pinned asset and verified the same digest before extraction. Local paths were replaced by `<local-run-dir>/` before the first commit:
+
+| File (under `execution-evidence/2026-10-22-6d47d75/`) | Captured | Committed |
+|---|---|---|
+| `tabdpt_classifier_colab_6d47d75_colab-cli-t4.ipynb` | `d7b0fad65d02fe09e01cc01e1927225f4384ff2d2cd047faf3fbe6541c8a120c` | unchanged (no local path) |
+| `tabdpt_classifier_colab_6d47d75_colab-cli-t4_exec.log` | `f12abe89c2d1c86438a510bc598094e59363fb178c989d77affa628183250e22` | `cf78b9db927eb43a2d820df1ffdf8d463de02b6ee2245d561be534f3fb5ec131` |
+| `tabdpt_classifier_colab_6d47d75_colab-cli-t4_run_summary.json` | `803b4739d4fc87ca57ac13e6ff6cbd17edede935a363520ba93899df133e69e6` | unchanged (no local path) |
+| `tabdpt_classifier_colab_6d47d75_colab-cli-t4_suite.log` | `bced937a218eda4de583e1613ff2d7d82f1f9c7c68d9dd5cbdb4cf8b38ef5c16` | `93de3a459ac4422559e1f7a449023a899d1e449886c3b5730c4b5bfa26fb2ee5` |
+
 ### Local lock-only drives (not clean-runtime evidence)
 
 Builder pre-flight of the current blobs (generated at `1963393`; drives of the previous blobs `e779fee2` / `8985a6b5`, generated at `9cadc17` and differing only in that revision label, gave the same printed results): the notebooks' own code cells run in order in one
@@ -180,11 +198,19 @@ Not a supported runtime, not hosted, and not promotion evidence.
 
 ## Current status
 
-**2026-10-22 — NOTEBOOK_SPEC 3.0 migration (Candidate).** The companion is folded into the E2E notebook's Section 10
-and the notebook declares spec 3.0. No hosted run of the migrated blob is recorded yet; until it is, the notebook stays
-Candidate. The 2026-10-11 runs below were of the 2.2-era pair and do not transfer to the migrated blob.
+**Current status (2026-10-22): Candidate.** Recorded: the hosted Colab T4 run of blob `69a07f6b` at `6d47d75` (PR #31; Colab CLI, not a browser Run all) passed the default path end to end, including Section 10 with the v1 pin (see "In-run export identity run" above). The earlier run of blob `e6ef7050` at `b0a0173` is history for the current blob (REL14). The notebook stays Candidate pending:
 
-**2026-10-11 — one-pass hosted runs of both current blobs are recorded** (the 2026-10-11 rows of the clean-runtime table): `tabdpt_classifier_colab.ipynb` (`cd16465668f7`) and `tabdpt_classifier_artifact_inference_colab.ipynb` (`08b97ab90028`) at `ff8415b`, each by Colab CLI 0.7.4 sequential execution on a fresh Colab Tesla T4 (not a browser Run all), no restart, 0 error outputs. Notes for the reviewer: (a) the T4 metrics are identical to the CPU reference (accuracy 0.9912, log loss 0.0594, ROC AUC 0.9977, 1/114 errors), and the exported artifact's SHA-256 equals the pinned sample's (`b70144fd…`); (b) the Hub checkpoint download completed on Colab (254,098,072 bytes, SHA-256 `06680220…` verified) — the stall seen in a local WSL drive is a local-only issue; (c) the companion's 8 predictions are identical to the E2E run's at 4 decimals (labels and both probabilities); (d) both carried revision labels read `1963393` (generation-time HEAD, not `ff8415b`) — follow-up; (e) the optional activity was not run; (f) the maintainer accepted the carried sample (no release; Apache-2.0; no weights; public breast-cancer rows plus imputer/scaler statistics; byte-identical to a real CPU export). Both notebooks stay **Candidate**; remaining gates: reviewer confirmation of these runs, the BYOD journeys and the optional activities.
+1. **REL12:** a BYOD run that accepts one representative input through the downstream stages and refuses one
+   incompatible input;
+2. **REL2:** a run in the hosted runtime's browser interface for the interactive journeys (BYOD upload, the optional
+   activity toggle, the own-artifact ZIP);
+3. **a run of the optional activity** (off by default; every recorded run printed it as skipped).
+
+**SART9 is met by identity (owner ruling, 2026-10-22).** The release asset of `sample-artifact-breast-cancer-v1` was packed on the VM after the `762eb5b` run from that run's exported `outputs/artifact/`. Since then the notebook's own export stage writes the deterministic ZIP in-run (sorted members, 1980-01-01 00:00:00, mode 0644, `create_system` 3, atomic write) and records its SHA-256 under `artifact.zip_sha256`. The in-run ZIP of the hosted runs at `b0a0173` and `6d47d75` is byte-identical to the v1 asset (`42aab6ce…`), so the pinned bytes are the export of the default path of a recorded run. The owner chose to keep the v1 pin rather than republish identical bytes under a new tag.
+
+**SART7 deviation (2026-10-22).** `sample-artifact-breast-cancer-v1` is a mutable release: this repository does not enable immutable releases. The notebook pins the asset's SHA-256 (`SAMPLE_ARTIFACT_SHA256` = `42aab6ce342b6bdf9870e1fe332a1371cdcb2e6d19ad6b6b484a39a1fc73bb19`), and Section 10 refuses the download before extraction unless the digest matches, so a replaced asset cannot be used silently. The owner accepted this deviation on 2026-10-22.
+
+**History, 2026-10-11 — one-pass hosted runs of both blobs current at that time (the 2.2-era pair) were recorded** (the 2026-10-11 rows of the clean-runtime table): `tabdpt_classifier_colab.ipynb` (`cd16465668f7`) and `tabdpt_classifier_artifact_inference_colab.ipynb` (`08b97ab90028`) at `ff8415b`, each by Colab CLI 0.7.4 sequential execution on a fresh Colab Tesla T4 (not a browser Run all), no restart, 0 error outputs. Notes for the reviewer: (a) the T4 metrics are identical to the CPU reference (accuracy 0.9912, log loss 0.0594, ROC AUC 0.9977, 1/114 errors), and the exported artifact's SHA-256 equals the pinned sample's (`b70144fd…`); (b) the Hub checkpoint download completed on Colab (254,098,072 bytes, SHA-256 `06680220…` verified) — the stall seen in a local WSL drive is a local-only issue; (c) the companion's 8 predictions are identical to the E2E run's at 4 decimals (labels and both probabilities); (d) both carried revision labels read `1963393` (generation-time HEAD, not `ff8415b`) — follow-up; (e) the optional activity was not run; (f) the maintainer accepted the carried sample (no release; Apache-2.0; no weights; public breast-cancer rows plus imputer/scaler statistics; byte-identical to a real CPU export). Both notebooks stay **Candidate**; remaining gates: reviewer confirmation of these runs, the BYOD journeys and the optional activities.
 
 Before 2026-10-11: no clean-runtime execution of the current standalone blobs had been recorded (the Kaggle row above is an earlier blob, the local drives are pre-flight only). Static validation (`tools/validate_release_assets.py`), nbformat validation, a
 `compile()` sweep over every code cell, and the offline unit suite passed on the tutorial source at
