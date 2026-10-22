@@ -31,11 +31,7 @@ This repository ships standalone Google Colab tutorials that exercise its public
 
 - **End-to-End Pipeline Tutorial**: \
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_colab.ipynb) [`tabdpt_classifier_colab.ipynb`](https://github.com/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_colab.ipynb) \
-  *Verify the pinned TabDPT snapshot, validate labelled tables and class coverage, fit preprocessing and in-context support, evaluate class predictions against the majority-class baseline, and export and reload the serving artifact.*
-
-- **Serving Artifact Inference Tutorial**: \
-  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_artifact_inference_colab.ipynb) [`tabdpt_classifier_artifact_inference_colab.ipynb`](https://github.com/kurtvalcorza/tabdpt-classifier-pipeline/blob/main/tutorials/tabdpt_classifier_artifact_inference_colab.ipynb) \
-  *Validate an externally supplied serving artifact and its class-label mapping, reconstruct the predictor without refitting, validate new rows, and export class predictions and probabilities with provenance.*
+  *Verify the pinned TabDPT snapshot, validate labelled tables and class coverage, fit preprocessing and in-context support, evaluate class predictions against the majority-class baseline, export and reload the serving artifact, and, in the closing external-artifact section, validate a pinned artifact made by an earlier recorded run and serve it without refitting.*
 
 > [!NOTE]
 > The notebooks disable FlashAttention with `use_flash=False` for Colab Tesla T4 compatibility; `fit()` conditions on support data without gradient training. These tutorials remain release candidates; see [release verification](docs/release-verification.md) for execution records and promotion requirements.

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Execute the DIMER tutorial pair through real IPython kernels and record release evidence.
 
+RETIRED. Kept only as the record of how the 2026-09-11 local run was produced. It drove the previous
+repository-installing notebook pair; the ARTIFACT-INFERENCE companion it ran second was folded into the E2E
+notebook's closing external-artifact section (NOTEBOOK_SPEC 3.0 §19.1, KND11) and no longer exists, so this
+script no longer runs. Hosted runs of the standalone E2E notebook are recorded in docs/release-verification.md.
+
 This is an *execution* check (NOTEBOOK_SPEC REL1/REL5/REL7), not the static validator. It runs
 `tabdpt_classifier_colab.ipynb` (E2E) in one fresh kernel, then runs
 `tabdpt_classifier_artifact_inference_colab.ipynb` (ARTIFACT-INFERENCE) in a *second* fresh kernel

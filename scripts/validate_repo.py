@@ -23,7 +23,7 @@ required = [
     "README.md", "MODEL_CARD.md", "DIMER_CONTRACT.md", "LICENSE",
     "TABULAR_CLASSIFICATION_DATASET_SPEC.md", "dimer-pipeline.json",
     "dimer_entrypoint.py", "pyproject.toml", "tutorials/tabdpt_classifier_colab.ipynb",
-    "tutorials/tabdpt_classifier_artifact_inference_colab.ipynb", "DEPLOYMENT.md",
+    "DEPLOYMENT.md",
     "weights/README.md", "tutorials/README.md", "examples/sample-data/DATASET_CARD.md",
     "examples/build_sample_datasets.py",
 ]
