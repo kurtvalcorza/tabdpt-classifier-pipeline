@@ -179,6 +179,15 @@ published artifact byte for byte. Local paths were replaced by `<local-run-dir>/
 | `tabdpt_classifier_colab_6d47d75_colab-cli-t4_run_summary.json` | `803b4739d4fc87ca57ac13e6ff6cbd17edede935a363520ba93899df133e69e6` | unchanged (no local path) |
 | `tabdpt_classifier_colab_6d47d75_colab-cli-t4_suite.log` | `bced937a218eda4de583e1613ff2d7d82f1f9c7c68d9dd5cbdb4cf8b38ef5c16` | `93de3a459ac4422559e1f7a449023a899d1e449886c3b5730c4b5bfa26fb2ee5` |
 
+**Optional-activity run (2026-10-22, `b37f496` / committed blob `69a07f6b`, `RUN_ACTIVITY = True`).** A run copy of committed blob `69a07f6b` with one override, `RUN_ACTIVITY = False` → `True` (run copy blob `0ac01f567735`, SHA-256 `24f36b06a0b35daf443b58c014b73b74e98e50dfca5ecb707798e7cb7da94e0f`; it differs from the committed blob only in that assignment literal and is committed beside the evidence as `…_activity_run_copy.ipynb`), run by Colab CLI 0.7.5 `colab exec -f` (a scripted run, not a browser Run all) on a fresh Colab Tesla T4 at `main` `b37f496`, started 2026-10-22T13:36:18Z, wall 138.6 s, exit 0, sequential, input (the run copy) unchanged, 14/14 code cells, no error; verdict PASS. Evidence: `docs/execution-evidence/2026-10-22-b37f496-activity/`. The Section 11 activity (`n_ensembles` 2 → 8) printed, on 114 holdout rows, accuracy 0.9912 → 0.9912, log loss 0.0594 → 0.0514, ROC AUC 0.9977 → 0.998, holdout errors 1 → 1, and `{'canonical_outputs_unchanged': True, 'files_checked': 8}`. Local paths were replaced by `<local-run-dir>` before the first commit:
+
+| File (under `execution-evidence/2026-10-22-b37f496-activity/`) | Captured | Committed |
+|---|---|---|
+| `tabdpt_classifier_colab_b37f496_colab-cli-t4_activity.ipynb` | `37c3ecf38cf1aa111e1980b2db15b63406e47b13d2bd35e0163f093a5ba36ed6` | unchanged (no local path) |
+| `tabdpt_classifier_colab_b37f496_colab-cli-t4_activity_exec.log` | `2759e825c99a3525c99e8a461636bf5b709a0187c80f2dbbfc683fff665350aa` | `ef557047639d5e9366b83acb53bbd8c535cd4a569cc3f16174057d197ecfca25` (2 replacements) |
+| `tabdpt_classifier_colab_b37f496_colab-cli-t4_activity_run_summary.json` | `95ce928721106b4fbeeacfd9cfd62db0e6be53a57e338820225149639ce70fde` | unchanged (no local path) |
+| `tabdpt_classifier_colab_b37f496_colab-cli-t4_activity_run_copy.ipynb` | `24f36b06a0b35daf443b58c014b73b74e98e50dfca5ecb707798e7cb7da94e0f` | unchanged (no local path) |
+
 ### Local lock-only drives (not clean-runtime evidence)
 
 Builder pre-flight of the current blobs (generated at `1963393`; drives of the previous blobs `e779fee2` / `8985a6b5`, generated at `9cadc17` and differing only in that revision label, gave the same printed results): the notebooks' own code cells run in order in one
@@ -198,13 +207,12 @@ Not a supported runtime, not hosted, and not promotion evidence.
 
 ## Current status
 
-**Current status (2026-10-22): Candidate.** Recorded: the hosted Colab T4 run of blob `69a07f6b` at `6d47d75` (PR #31; Colab CLI, not a browser Run all) passed the default path end to end, including Section 10 with the v1 pin (see "In-run export identity run" above). The earlier run of blob `e6ef7050` at `b0a0173` is history for the current blob (REL14). The notebook stays Candidate pending:
+**Current status (2026-10-22): Candidate.** Recorded: the hosted Colab T4 run of blob `69a07f6b` at `6d47d75` (PR #31; Colab CLI, not a browser Run all) passed the default path end to end, including Section 10 with the v1 pin (see "In-run export identity run" above). The optional activity ran once on the same blob (see "Optional-activity run" above: a `RUN_ACTIVITY = True` run copy at `b37f496`, Colab CLI 0.7.5, fresh T4, PASS), which satisfies the owner's 2026-10-22 ruling that it runs before promotion. The earlier run of blob `e6ef7050` at `b0a0173` is history for the current blob (REL14). The notebook stays Candidate pending:
 
 1. **REL12:** a BYOD run that accepts one representative input through the downstream stages and refuses one
    incompatible input;
 2. **REL2:** a run in the hosted runtime's browser interface for the interactive journeys (BYOD upload, the optional
-   activity toggle, the own-artifact ZIP);
-3. **a run of the optional activity** (off by default; every recorded run printed it as skipped).
+   activity toggle, the own-artifact ZIP).
 
 **SART9 is met by identity (owner ruling, 2026-10-22).** The release asset of `sample-artifact-breast-cancer-v1` was packed on the VM after the `762eb5b` run from that run's exported `outputs/artifact/`. Since then the notebook's own export stage writes the deterministic ZIP in-run (sorted members, 1980-01-01 00:00:00, mode 0644, `create_system` 3, atomic write) and records its SHA-256 under `artifact.zip_sha256`. The in-run ZIP of the hosted runs at `b0a0173` and `6d47d75` is byte-identical to the v1 asset (`42aab6ce…`), so the pinned bytes are the export of the default path of a recorded run. The owner chose to keep the v1 pin rather than republish identical bytes under a new tag.
 
