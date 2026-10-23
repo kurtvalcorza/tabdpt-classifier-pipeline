@@ -67,7 +67,7 @@ For DIMER, mount/cache the verified base weight through `DIMER_BASE_MODEL_PATH` 
 
 ## Release status
 
-**Candidate.** Static/unit checks do not constitute clean-runtime notebook evidence. The last recorded hosted run is of blob `69a07f6b` at `6d47d75` (Colab CLI, T4, 2026-10-22, default path PASS; its in-run export ZIP equals the pinned v1 asset); a notebook whose blob changed since then has no recorded run until one is added (REL14). The optional activity ran once on the same blob (a `RUN_ACTIVITY = True` run copy at `b37f496`, Colab CLI 0.7.5, T4, 2026-10-22, PASS). Still pending before promotion: the BYOD accept and refuse journeys (REL12) and a browser run (REL2). See `docs/release-verification.md` → Current status.
+**Candidate.** Static/unit checks do not constitute clean-runtime notebook evidence. The current blob `0712861c` (regenerated from `1332d77`: a refused user input is shown as one `Refused: <file>: <reason>` line and Run all stops at that cell; DAT19/DAT20) has no recorded hosted run yet (REL14); the runs below cover the previous blob and are history. The last recorded hosted run is of blob `69a07f6b` at `6d47d75` (Colab CLI, T4, 2026-10-22, default path PASS; its in-run export ZIP equals the pinned v1 asset); a notebook whose blob changed since then has no recorded run until one is added (REL14). The optional activity ran once on the same blob (a `RUN_ACTIVITY = True` run copy at `b37f496`, Colab CLI 0.7.5, T4, 2026-10-22, PASS). Still pending before promotion: a hosted default-path run and an optional-activity run of the current blob `0712861c`, the BYOD accept and refuse journeys (REL12) and a browser run (REL2). See `docs/release-verification.md` → Current status.
 
 ## Model card
 
