@@ -441,6 +441,7 @@ def test_predictions_and_provenance_go_to_outputs_external_artifact(tmp_path, mo
     P = STAGES.package(root)
     contract = STAGES.default_contract()
     art = {"source": "pinned", "zip": "external_artifact.zip", "zip_sha256": PINNED_SHA256, "url": PINNED_URL, "trusted_digest": "verified (pinned SAMPLE_ARTIFACT_SHA256)", **contract, "numericColumns": contract["featureColumns"], "categoricalColumns": []}
+    run.write_state("external_artifact.json", art)  # the stage checks the rows against the recorded manifest first
     monkeypatch.setattr(STAGES, "external_serving", lambda _run: (P, art, _Serving()))
     monkeypatch.setattr(STAGES, "runtime_identity", lambda: {"device": "stub"})
     _quiet(STAGES.stage_external_predict, run)
@@ -459,6 +460,7 @@ def test_own_artifact_needs_own_rows(tmp_path, monkeypatch) -> None:
     run = STAGES.Run(root, tmp_path / "outputs", tmp_path / "weights", {})
     contract = STAGES.default_contract()
     art = {"source": "own", **contract, "numericColumns": [], "categoricalColumns": []}
+    run.write_state("external_artifact.json", art)
     monkeypatch.setattr(STAGES, "external_serving", lambda _run: (types.SimpleNamespace(), art, _Serving()))
     with pytest.raises(ValueError, match="set EXTERNAL_ROWS_PATH"):
         _quiet(STAGES.stage_external_predict, run)
