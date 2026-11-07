@@ -224,7 +224,7 @@ published artifact byte for byte. Local paths were replaced by `<local-run-dir>/
 
 ### Local lock-only drives (not clean-runtime evidence)
 
-Builder pre-flight of the current blobs (generated at `1963393`; drives of the previous blobs `e779fee2` / `8985a6b5`, generated at `9cadc17` and differing only in that revision label, gave the same printed results): the notebooks' own code cells run in order in one
+Builder pre-flight of the then-current blobs (generated at `1963393`; drives of the previous blobs `e779fee2` / `8985a6b5`, generated at `9cadc17` and differing only in that revision label, gave the same printed results): the notebooks' own code cells run in order in one
 plain CPython namespace standing in for the kernel, in WSL Ubuntu x86_64 with the GPU hidden
 (`CUDA_VISIBLE_DEVICES=-1`), so every stage ran on the CPU. The install cell built the isolated environment from
 `tutorials/requirements-colab.lock.txt` (55 packages, `--require-hashes`, managed CPython 3.12.12, torch 2.7.1,
@@ -239,11 +239,57 @@ Not a supported runtime, not hosted, and not promotion evidence.
 | 2026-10-11 | E2E `cd16465668f7` | BYOD by `BYOD_PATH`: the sample table with 5 blank targets | 4 ok, then refused in the Section 4 cell | — | Section 4 stops: "the target column 'target' has 5 missing or blank value(s) out of 569 rows (file lines 5, 12, 52, 202, 402) … Nothing was written to outputs/."; `outputs/` empty |
 | 2026-10-11 | ARTIFACT-INFERENCE `08b97ab90028` | Default path (pinned sample) | 9/9 | 45.6 s (`environment_reused: True` — the E2E drive's environment, same lock digest) | no upload dialog; `trusted_digest: verified`; 8 predictions identical to the E2E run's; report `not-measurable`, `sample_kind: sample` |
 
+### Hosted Colab T4 runs of blob `92a2b9f4` (2026-11-03)
+
+These runs executed `main` at `06b1d8da499dba09873159c67e08bfa58d40e815`, notebook `tutorials/tabdpt_classifier_colab.ipynb` blob `92a2b9f49430cb94e9bc23c33899b4e0b5fe8e2b`, fetched at the 40-character SHA and Git-blob verified, with the Colab CLI (`colab exec -f`) on a fresh Colab Tesla T4 session: sequential CLI execution, not a browser `Run all` (the Colab CLI version is not recorded in `exec.log` or `run_summary.json`). Each `run_summary.json` records `verdict` `PASS`, `exec_exit_code` 0, `input_unchanged` true and `stop_verified` true (the VM was released), and the SHA-256 of each executed notebook equals the summary's `executed_sha256`.
+
+**One pass, no restart, 0 errors** (default path, 2026-11-03 10:53:38 UTC start). Default settings, no overrides; session `suite-tabdpt-06b1d8d-16f8`; wall 149.7 s (`wall_s`); `code_cells` 14, all logged in order by `exec.log`, `executed_cells` 14; 0 errors. Retained evidence: [`execution-evidence/2026-11-03-06b1d8d/`](execution-evidence/2026-11-03-06b1d8d/).
+
+Printed by the default run (verbatim lines from the executed outputs):
+
+```text
+{'class_counts': {'benign': 357, 'malignant': 212}}
+{'train': [455, 31], 'holdout': [114, 31], 'train_class_counts': {'benign': 285, 'malignant': 170}, 'holdout_class_counts': {'benign': 72, 'malignant': 42}}
+{'request': {'n_ensembles': 2, 'context_size': 512, 'batch_size': 512, 'seed': 42}}
+{'classLabels': ['benign', 'malignant'], 'encodedFeatureCount': 30, 'modelFeatureCeiling': 128, 'featureReduction': 'pca', 'featureReductionActive': False, 'numericMissingColumns': [], 'upstreamImputer': 'SimpleImputer', 'source': 'local-snapshot'}
+{'source': 'pinned', 'zip': 'external_artifact.zip', 'zip_sha256': '42aab6ce342b6bdf9870e1fe332a1371cdcb2e6d19ad6b6b484a39a1fc73bb19', 'trusted_digest': 'verified (pinned SAMPLE_ARTIFACT_SHA256)', 'format': 'tabdpt-dimer-context-v3', 'formatVersion': 3, 'artifactSemantics': 'support-context-plus-pinned-base-model', 'data_contract': 'breast-cancer default path (features, target and class labels match)'}
+{'baseModel': {'filename': 'tabdpt1_2.safetensors', 'repo': 'Layer6/TabDPT', 'revision': '4462ffbd1d8dea25d4862d30beed4b70cd596ae5', 'sha256': '06680220fd66c4524051706b98c1c659a674d19d3a766cd0bb276505e99faccd', 'upstreamCodeCommit': '9cfb05e0a6bc380ae6c99c08adc8d50dacd4f246'}}
+{'featureColumns': 30, 'targetColumn': 'target', 'classLabels': ['benign', 'malignant'], 'categoricalColumns': [], 'contextRows': 455, 'contextClassCounts': {'benign': 285, 'malignant': 170}, 'contextSha256': '9964a1377bd01c211455e78a0e8eb1629750c4f8c55ffb744c854e3a6b256b90'}
+{'outputs': ['outputs/external_artifact/tabdpt_classifier_external_predictions.csv', 'outputs/external_artifact/tabdpt_classifier_external_result.json'], 'input_kind': 'sample', 'artifact_source': 'pinned', 'zip_sha256': '42aab6ce342b6bdf9870e1fe332a1371cdcb2e6d19ad6b6b484a39a1fc73bb19'}
+```
+
+**Refused as designed** (DAT20 refusal record, 2026-11-03 10:57:30 UTC start, blob `92a2b9f4`). Overrides, set by `--set` on a copy of the blob: `USE_BYOD` `False` → `True` and `BYOD_PATH` `''` → `'/content/sample_data/california_housing_test.csv'`. The suite cut the run copy right after the refusing cell `tabdpt_classifier-14`, dropping 29 cells (9 of them code cells), which reproduces `Run all` stopping at the first error; the cut copy is `run_copy.ipynb`, SHA-256 `a5aa1712b9c51fa5059416fe78c42c814bd1dd2faa7e7f27f50fa86a86e5766b` (Git blob `a2ccd50e`), equal to the summary's `run_copy_sha256`. Its 5 code cells were logged in order by `exec.log`; the earlier code cells completed without an error output; the refusing cell's only error output has `ename` `Refused` and no Python stack trace (its traceback is the single refusal line), and its output holds exactly one `Refused:` line:
+
+```text
+Refused: california_housing_test.csv: the target column 'target' is not in the header ['longitude', 'latitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income', 'median_house_value']. Set TARGET to the name of your label column. Fix the file (or the Section 4 fields) and run the Section 4 cell again.
+```
+
+This run says nothing about the 29 cut cells, which did not run in it. Session `suite-tabdpt-06b1d8d-16f8`, wall 98.9 s. Retained evidence: [`execution-evidence/2026-11-03-06b1d8d/`](execution-evidence/2026-11-03-06b1d8d/).
+
+**Local-path redaction.** Local paths were replaced byte-wise by `<local-run-dir>` (and the Colab CLI install path by `<colab-cli-tool-dir>/`, where present) before the first commit; each executed notebook and run copy was checked against its `run_summary.json` before any edit.
+
+| File (under `docs/execution-evidence/2026-11-03-06b1d8d/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_default.ipynb` | `e42b63f694dca4c48a51fefcd7ae099264d1064fbd7c3fb5988045f635a2f91b` | `e42b63f694dca4c48a51fefcd7ae099264d1064fbd7c3fb5988045f635a2f91b` (unchanged, no local path) |
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_default_exec.log` | `60de1156f607faaa6b26499890f2d087a78a3d509d012f94cb37322c35f7526f` | `4b69c339c7b02dfc44b4b9ea7743b560e79e725cfb815e20662154af8ffa5806` (2 local-path replacements) |
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_default_run_summary.json` | `50af83393dedde441a23607993021d0ebf75f6675d24496b00f83d3280a1d6e5` | `50af83393dedde441a23607993021d0ebf75f6675d24496b00f83d3280a1d6e5` (unchanged, no local path) |
+
+| File (under `docs/execution-evidence/2026-11-03-06b1d8d/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_refusal.ipynb` | `b9970346520081195f1a5ccbdd28606f408381cdf37653bde700b7f06e72a4f5` | `b9970346520081195f1a5ccbdd28606f408381cdf37653bde700b7f06e72a4f5` (unchanged, no local path) |
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_refusal_exec.log` | `edd2c000f88775c0a3dfb644946ba2e6db793aa878e15181952241d65467ac14` | `c720311644b1f501335e3bfd7e6d3aa27abc2c5cee1b85087e23440e4d147699` (2 local-path replacements) |
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_refusal_run_summary.json` | `698bb2e0f985f9cd0c6834666c92a697ddf4989934db9d2fb39061075e8ff9be` | `698bb2e0f985f9cd0c6834666c92a697ddf4989934db9d2fb39061075e8ff9be` (unchanged, no local path) |
+| `tabdpt_classifier_colab_06b1d8d_colab-cli-t4_refusal_run_copy.ipynb` | `a5aa1712b9c51fa5059416fe78c42c814bd1dd2faa7e7f27f50fa86a86e5766b` | `a5aa1712b9c51fa5059416fe78c42c814bd1dd2faa7e7f27f50fa86a86e5766b` (unchanged, no local path) |
+
+Not exercised by these runs: an accepted BYOD input (REL12), a browser `Run all` of the interactive journeys (REL2), and every other open gate named in this file; these runs close none of them.
+
 ## Current status
 
-**Current status (2026-10-29): Candidate.** The current notebook blob is `9165a38e` (regenerated from `088ecfa`: a cancelled or empty upload is now refused with one `Refused: (no file): …` line and Run all stops at that cell, DAT20). On 2026-10-29 its default path (14/14 code cells, one pass, no restart, 0 errors) and its scripted DAT20 refusal (exactly one `Refused:` line at cell `tabdpt_classifier-14`, no traceback, earlier cells clean) passed on a hosted Colab Tesla T4 (Colab CLI, not a browser Run all; see "DAT20 default run" and "DAT20 scripted refusal run" above), and the runs of earlier blobs are history for it (REL14). The optional-activity run of 2026-10-23 was of the previous blob and has not been repeated on this one. The paragraph below describes the previous blob `0712861c`.
+**Candidate.** The current blob `92a2b9f4` (`main` at `06b1d8d`, after the 2026-11 lock upgrades) shows a refused BYOD input as exactly one `Refused: <file>: <reason>` line, with no traceback, and stops Run all at that cell. Its default path (2026-11-03; 14 code cells, exit 0, 0 errors) and its scripted DAT20 refusal (2026-11-03; `USE_BYOD=True;BYOD_PATH=/content/sample_data/california_housing_test.csv`: exactly one `Refused:` line at cell `tabdpt_classifier-14`, no traceback, earlier cells clean, VM released) both passed on a hosted Colab Tesla T4 (Colab CLI `colab exec -f`, not a browser `Run all`), and the hosted runs of earlier blobs, including `9165a38e`, are history for it (REL14). REL12 (a hosted BYOD run), REL2 (a browser `Run all`) and a hosted run of the optional activity (`RUN_ACTIVITY = True`) stay open for this blob; the optional-activity runs recorded so far are of earlier blobs, so the activity gate is open again. Every other open gate named in this file stays open.
 
-**Current status (2026-10-23): Candidate.** The previous notebook blob was `0712861c` at `b1aeffd` on `fix/refusal-display` (PR #33), regenerated from code commit `1332d77`: a refused user input — the BYOD table, your own Section 10 artifact ZIP or rows — is shown as one `Refused: <file>: <reason>` line with no traceback, and Run all stops at that cell (NOTEBOOK_SPEC 3.0 DAT19/DAT20). **Default path covered:** the hosted Colab T4 run of blob `0712861c` at `b1aeffd` (2026-10-23, Colab CLI 0.7.5, not a browser Run all) passed end to end, including Section 10 with the v1 pin, and its in-run export ZIP equals the pinned v1 asset (see "Refusal-display default run" above). **Optional activity covered:** a `RUN_ACTIVITY = True` run copy of the same blob at `b1aeffd` passed on a fresh T4 (see "Refusal-display optional-activity run" above), which satisfies the owner's 2026-10-22 ruling that the activity runs before promotion. Runs of earlier blobs are history (REL14): `69a07f6b` at `6d47d75` (default) and `b37f496` (activity), and `e6ef7050` at `b0a0173`. The notebook stays Candidate pending only:
+**Status on 2026-10-29 (history): Candidate.** The then-current notebook blob was `9165a38e` (the current blob on 2026-10-29; history since the 2026-11 lock upgrades) (regenerated from `088ecfa`: a cancelled or empty upload is now refused with one `Refused: (no file): …` line and Run all stops at that cell, DAT20). On 2026-10-29 its default path (14/14 code cells, one pass, no restart, 0 errors) and its scripted DAT20 refusal (exactly one `Refused:` line at cell `tabdpt_classifier-14`, no traceback, earlier cells clean) passed on a hosted Colab Tesla T4 (Colab CLI, not a browser Run all; see "DAT20 default run" and "DAT20 scripted refusal run" above), and the runs of earlier blobs are history for it (REL14). The optional-activity run of 2026-10-23 was of the previous blob and has not been repeated on this one. The paragraph below describes the previous blob `0712861c`.
+
+**Status on 2026-10-23 (history): Candidate.** The previous notebook blob was `0712861c` at `b1aeffd` on `fix/refusal-display` (PR #33), regenerated from code commit `1332d77`: a refused user input — the BYOD table, your own Section 10 artifact ZIP or rows — is shown as one `Refused: <file>: <reason>` line with no traceback, and Run all stops at that cell (NOTEBOOK_SPEC 3.0 DAT19/DAT20). **Default path covered:** the hosted Colab T4 run of blob `0712861c` at `b1aeffd` (2026-10-23, Colab CLI 0.7.5, not a browser Run all) passed end to end, including Section 10 with the v1 pin, and its in-run export ZIP equals the pinned v1 asset (see "Refusal-display default run" above). **Optional activity covered:** a `RUN_ACTIVITY = True` run copy of the same blob at `b1aeffd` passed on a fresh T4 (see "Refusal-display optional-activity run" above), which satisfies the owner's 2026-10-22 ruling that the activity runs before promotion. Runs of earlier blobs are history (REL14): `69a07f6b` at `6d47d75` (default) and `b37f496` (activity), and `e6ef7050` at `b0a0173`. For that blob the notebook then stayed Candidate pending only:
 
 1. **REL12:** a BYOD run that accepts one representative input through the downstream stages and refuses one
    incompatible input;
